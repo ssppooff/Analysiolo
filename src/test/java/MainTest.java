@@ -2,6 +2,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import functionalUtilities.FileReader;
 import functionalUtilities.Result;
+import functionalUtilities.Stream;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import parser.Transaction;
@@ -10,7 +11,7 @@ import parser.Transaction;
  If no date is given/what is the value of the portfolio now?
  - Input all the transactions into db
  - Read all the transactions from the db into memory
- - compile list of all stock held at this current  moment
+ * compile list of all stock held at this current  moment
  - ask Yahoo Finance the prices of the list
 
  If the user asks for the value of the portfolio at the end of a certain date
@@ -26,16 +27,31 @@ import parser.Transaction;
 
 class MainTest {
   String path = "src/test/java/testdata.txt";
-  Result<FileReader> rReader = FileReader.read(path);
-  static LocalDate date = LocalDate.parse("2022-09-10");
-  static String txType = "BUY";
-  static String symbol = "AVUV";
-  static int nShares = -200;
-  static int buyBasePrice = 3000;
+  Result<FileReader> fR = FileReader.read(path);
+  static LocalDate date = LocalDate.parse("2022-02-18");
+  static String txType = "SELL";
+  static String symbol = "VTI";
+  static int nShares = +10;
+  static int buyBasePrice = 4011;
+
+  @Test
+  void test() {
+//    var f =
+        fR.map(input -> Stream.unfold(input, Main::createTx))
+            .forEach(st -> st.forEach(System.out::println));
+//    List<Integer> l = new ArrayList<>();
+//    l.add(1);
+//    l.add(2);
+//    l.add(3);
+//    l.add(4);
+//    l.add(5);
+//    l.stream();
+  }
 
   @Test
   void createTx() {
     Transaction tx = Transaction.transaction(date, symbol, nShares, buyBasePrice);
-    rReader.flatMap(Main::createTx).forEach(t -> assertEquals(tx, t._1));
+//    System.out.println(tx.toString());
+    fR.flatMap(Main::createTx).forEach(t -> assertEquals(tx, t._1));
   }
 }

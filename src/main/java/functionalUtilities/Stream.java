@@ -34,23 +34,41 @@ public abstract class Stream<T> {
   }
 
   public List<T> toList() {
-    // simple recursion
-    return toList_(new ArrayList<>(), this);
+    return toList_(new ArrayList<>(), this).eval();
   }
 
-  private static <T> List<T> toList_(List<T> acc, Stream<T> s) {
+  private static <T> TailCall<List<T>> toList_(List<T> acc, Stream<T> s) {
     Function<T, Function<List<T>, List<T>>> cons = t -> l -> {
       l.add(t);
       return l;
     };
     return s.isEmpty()
-        ? acc
-        : toList_(cons.apply(s.head()).apply(acc), s.tail());
+        ? TailCall.ret(acc)
+        : TailCall.suspend(() -> toList_(cons.apply(s.head()).apply(acc), s.tail()));
   }
 
   public <U> Stream<U> map(Function<T, U> f) {
 //    foldRight(Stream.empty(), e -> acc -> cons(() -> f.apply(e), () -> foldRight(acc.con)
     return cons(() -> f.apply(head()), () -> tail().map(f));
+  }
+
+  public void forEach(Effect<T> ef) {
+//    forEach_(this, ef).eval();
+    forEachRec_(this, ef);
+  }
+
+
+  private static <T> void forEachRec_(Stream<T> s, Effect<T> ef) {
+    if (s.isEmpty())
+      return;
+    ef.apply(s.head());
+    forEachRec_(s.tail(), ef);
+  }
+  private static <T> TailCall<IO<Nothing>> forEach_(Stream<T> s, Effect<T> ef) {
+    ef.apply(s.head());
+    return s.isEmpty()
+        ? TailCall.ret(IO.empty)
+        : TailCall.suspend(() -> forEach_(s.tail(), ef));
   }
 
   public <U> U foldRight(U acc, Function<T, Function<U, U>> f) {

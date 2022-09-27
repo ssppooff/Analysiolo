@@ -8,7 +8,7 @@ import parser.Transaction;
 public class Main {
 
     public static void main(String[] args) {
-        String path = "src/main/resources/testdata.txt";
+        String path = "src/main/resources/demodata.txt";
         Result<FileReader> fR = FileReader.read(path);
         var f = fR.map(input -> Stream.unfold(input, Main::createTx));
 //        Result<Stream<String>> rStr = FileReader.read(path);

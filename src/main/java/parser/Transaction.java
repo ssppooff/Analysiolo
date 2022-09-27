@@ -38,4 +38,9 @@ public class Transaction {
         && this.numShares == oTx.numShares
         && this.buyPrice == oTx.buyPrice;
   }
+
+  @Override
+  public String toString() {
+    return String.format("%TF %s %d @ %.2f", date, symbol, numShares, (double) buyPrice/100);
+  }
 }
