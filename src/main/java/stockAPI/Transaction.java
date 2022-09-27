@@ -1,4 +1,4 @@
-package parser;
+package stockAPI;
 
 import java.time.LocalDate;
 
@@ -29,14 +29,13 @@ public class Transaction {
 
   @Override
   public boolean equals(Object obj) {
-    if (obj == null || !(obj instanceof Transaction))
+    if ( !(obj instanceof Transaction that) )
       return false;
 
-    Transaction oTx = (Transaction) obj;
-    return this.date.equals(oTx.date)
-        && this.symbol.equals(oTx.symbol)
-        && this.numShares == oTx.numShares
-        && this.buyPrice == oTx.buyPrice;
+    return this.date.equals(that.date)
+        && this.symbol.equals(that.symbol)
+        && this.numShares == that.numShares
+        && this.buyPrice == that.buyPrice;
   }
 
   @Override

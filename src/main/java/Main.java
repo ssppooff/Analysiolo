@@ -3,7 +3,7 @@ import functionalUtilities.Input;
 import functionalUtilities.Result;
 import functionalUtilities.Stream;
 import functionalUtilities.Tuple;
-import parser.Transaction;
+import stockAPI.Transaction;
 
 public class Main {
 

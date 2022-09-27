@@ -5,9 +5,11 @@ import functionalUtilities.Result;
 import functionalUtilities.Stream;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
-import parser.Transaction;
+import stockAPI.Transaction;
+import stockAPI.Symbol;
 
 /** TODO
+ * Curren task: compile list of all stocks held
  If no date is given/what is the value of the portfolio now?
  - Input all the transactions into db
  - Read all the transactions from the db into memory
