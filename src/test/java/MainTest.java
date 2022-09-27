@@ -1,17 +1,20 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import functionalUtilities.FileReader;
+import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Stream;
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
-import stockAPI.Transaction;
 import stockAPI.Symbol;
+import stockAPI.Transaction;
 
 /** TODO
- * Curren task: compile list of all stocks held
+ * Current task & subtasks:
+ - --compile list of all stocks held--
+ - After parsed all transactions, make sure that no nShares is negative for any stock
+ - nShares integer or double?
+
  If no date is given/what is the value of the portfolio now?
  - Input all the transactions into db
  - Read all the transactions from the db into memory
@@ -33,27 +36,24 @@ class MainTest {
   String path = "src/test/java/testdata.txt";
   Result<FileReader> fR = FileReader.read(path);
   static LocalDate date = LocalDate.parse("2022-02-18");
+  @SuppressWarnings("unused")
   static String txType = "SELL";
   static String symbol = "VTI";
-  static int nShares = +10;
+  static int nShares = 10;
   static int buyBasePrice = 4011;
 
   @Test
   void test() {
     var transactions = fR.map(input -> Stream.unfold(input, Main::createTx))
         .getOrElse(Stream.empty());
-//    transactions.forEach(System.out::println);
-    Set<Symbol> foo = transactions.foldLeft(new HashSet<>(),  acc -> e -> {
-      acc.add(e.getSymbol());
-      return acc;});
+    Map<Symbol, Integer> foo = transactions
+        .foldLeft(Map.empty(), acc -> e -> {
+          int nShares = acc.get(e.getSymbol())
+              .map(i -> i + e.getNumShares())
+              .getOrElse(e.getNumShares());
+          return acc.put(e.getSymbol(), nShares);
+        });
     foo.stream().forEach(System.out::println);
-//    List<Integer> l = new ArrayList<>();
-//    l.add(1);
-//    l.add(2);
-//    l.add(3);
-//    l.add(4);
-//    l.add(5);
-//    l.stream();
   }
 
   @Test
