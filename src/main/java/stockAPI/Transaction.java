@@ -46,4 +46,8 @@ public class Transaction {
   public Symbol getSymbol() {
     return Symbol.symbol(symbol);
   }
+
+  public int getNumShares() {
+    return numShares;
+  }
 }
