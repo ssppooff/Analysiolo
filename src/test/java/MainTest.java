@@ -4,6 +4,8 @@ import functionalUtilities.FileReader;
 import functionalUtilities.Result;
 import functionalUtilities.Stream;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import stockAPI.Transaction;
 import stockAPI.Symbol;
@@ -38,9 +40,13 @@ class MainTest {
 
   @Test
   void test() {
-//    var f =
-        fR.map(input -> Stream.unfold(input, Main::createTx))
-            .forEach(st -> st.forEach(System.out::println));
+    var transactions = fR.map(input -> Stream.unfold(input, Main::createTx))
+        .getOrElse(Stream.empty());
+//    transactions.forEach(System.out::println);
+    Set<Symbol> foo = transactions.foldLeft(new HashSet<>(),  acc -> e -> {
+      acc.add(e.getSymbol());
+      return acc;});
+    foo.stream().forEach(System.out::println);
 //    List<Integer> l = new ArrayList<>();
 //    l.add(1);
 //    l.add(2);
