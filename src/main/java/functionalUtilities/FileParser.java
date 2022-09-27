@@ -1,6 +1,5 @@
-package parser;
+package functionalUtilities;
 
-import functionalUtilities.Result;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
