@@ -16,6 +16,9 @@ public class Map<K, V> {
     return new Map<K, V>();
   }
 
+  public boolean containsKey(K key) {
+    return m.containsKey(key);
+  }
   public Result<V> get(K key) {
     return m.containsKey(key)
         ? Result.success(m.get(key))
