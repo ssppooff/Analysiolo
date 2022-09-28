@@ -5,21 +5,21 @@ import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Stream;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /** TODO
  * Current task & subtasks:
- - --compile list of all stocks held--
- - After parsed all transactions, make sure that no nShares is negative for any stock
+ - Input all the transactions into db
  - nShares integer or double?
 
  If no date is given/what is the value of the portfolio now?
- - Input all the transactions into db
+ * Input all the transactions into db
  - Read all the transactions from the db into memory
- * compile list of all stock held at this current  moment
  - ask Yahoo Finance the prices of the list
+ - ~compile list of all stock held at this current  moment~
 
  If the user asks for the value of the portfolio at the end of a certain date
  - figure out what stocks were held at the end of that day
@@ -30,6 +30,10 @@ import stockAPI.Transaction;
  - Current Net value
  - Time weighted return, since inception, year, YTD
  - Per Stock: Current price | avg/mean buying price
+
+ * Finished tasks
+ - ~compile list of all stocks held~
+ - ~After parsing all transactions, make sure that no nShares is negative for any stock~
  */
 
 class MainTest {
@@ -43,17 +47,21 @@ class MainTest {
   static int buyBasePrice = 4011;
 
   @Test
-  void test() {
-    var transactions = fR.map(input -> Stream.unfold(input, Main::createTx))
-        .getOrElse(Stream.empty());
-    Map<Symbol, Integer> foo = transactions
-        .foldLeft(Map.empty(), acc -> e -> {
-          int nShares = acc.get(e.getSymbol())
-              .map(i -> i + e.getNumShares())
-              .getOrElse(e.getNumShares());
-          return acc.put(e.getSymbol(), nShares);
-        });
-    foo.stream().forEach(System.out::println);
+  void parseTest() {
+    var stocks = fR.map(input -> Stream
+        .unfold(input, Main::createTx)
+        .foldLeft(Map.<Symbol, Integer>empty(), acc -> e -> acc.put(
+            e.getSymbol(),
+            acc.get(e.getSymbol()).getOrElse(0) + e.getNumShares()))
+    );
+
+    var negativeStock = stocks.map(m -> m.stream().filter(t -> t._2 < 0).toList()).getOrElse(new ArrayList<>());
+    Result<Map<Symbol, Integer>> result = negativeStock.isEmpty()
+        ? Result.success(stocks.getOrElse(Map.empty()))
+        : Result.failure("Input data contains stocks with negative number of shares: " + negativeStock.stream().map(t -> t._1).toList());
+
+    System.out.println(result);
+//    negativeStock.forEach(System.out::println);
   }
 
   @Test
