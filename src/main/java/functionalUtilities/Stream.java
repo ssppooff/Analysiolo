@@ -52,11 +52,31 @@ public abstract class Stream<T> {
     return cons(() -> f.apply(head()), () -> tail().map(f));
   }
 
+  public Stream<T> filter(Function<T, Boolean> p) {
+    Stream<T> s = dropWhile(e -> !p.apply(e));
+    return isEmpty()
+        ? this
+        : cons(s::head, () -> s.tail().filter(p));
+  }
+
+  public static <T> Stream<T> dropWhile(Stream<T> s, Function<T, Boolean> p) {
+    return s.dropWhile(p);
+  }
+  public Stream<T> dropWhile(Function<T, Boolean> p) {
+    return dropWhile_(this, p).eval();
+  }
+  private static <T> TailCall<Stream<T>> dropWhile_(Stream<T> s, Function<T, Boolean> p) {
+    return s.isEmpty()
+        ? TailCall.ret(s)
+        : p.apply(s.head())
+          ? TailCall.suspend(() -> dropWhile_(s.tail(), p))
+          : TailCall.ret(s);
+  }
+
   public void forEach(Effect<T> ef) {
 //    forEach_(this, ef).eval();
     forEachRec_(this, ef);
   }
-
 
   private static <T> void forEachRec_(Stream<T> s, Effect<T> ef) {
     if (s.isEmpty())
