@@ -44,7 +44,7 @@ class MainTest {
   static String txType = "SELL";
   static String symbol = "VTI";
   static int nShares = 10;
-  static int buyBasePrice = 4011;
+  static BigDecimal buyPrice = new BigDecimal("40.11");
 
   @Test
   void parseTest() {
