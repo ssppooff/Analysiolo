@@ -4,6 +4,7 @@ import functionalUtilities.FileReader;
 import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Stream;
+import functionalUtilities.Tuple;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -11,7 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
-import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import stockAPI.Symbol;
 import stockAPI.Transaction;
@@ -19,12 +20,9 @@ import stockAPI.Transaction;
 /** TODO
  * Current task & subtasks:
  - Input all the transactions into db
- - Connect to H2 database
- - Write stuff to database
- - Read stuff to database
+ - Connect to H2 database using JDBC, write & read stuff to it
  - ?? db stuff
  - nShares integer or double or BiDecimal?
- - BiDecimal for currency values
 
  If no date is given/what is the value of the portfolio now?
  * Input all the transactions into db
@@ -60,20 +58,22 @@ class MainTest {
 
   @Test
   void parseTest() {
-    var stocks = fR.map(input -> Stream
-        .unfold(input, Main::createTx)
-        .foldLeft(Map.<Symbol, Integer>empty(), acc -> e -> acc.put(
+    var stocks = fR.map(this::parseStocks);
+    stocks.map(this::checkNegativeStocks).forEach(System.out::println);
+  }
+
+  private Map<Symbol, Integer> parseStocks(FileReader input) {
+    return Stream.unfold(input, Main::createTx)
+        .foldLeft(Map.empty(), acc -> e -> acc.put(
             e.getSymbol(),
-            acc.get(e.getSymbol()).getOrElse(0) + e.getNumShares()))
-    );
+            acc.get(e.getSymbol()).getOrElse(0) + e.getNumShares()));
+  }
 
-    var negativeStock = stocks.map(m -> m.stream().filter(t -> t._2 < 0).toList()).getOrElse(new ArrayList<>());
-    Result<Map<Symbol, Integer>> result = negativeStock.isEmpty()
-        ? Result.success(stocks.getOrElse(Map.empty()))
+  private Result<Map<Symbol, Integer>> checkNegativeStocks(Map<Symbol, Integer> stocks) {
+    List<Tuple<Symbol, Integer>> negativeStock = stocks.stream().filter(t -> t._2 < 0).toList();
+    return negativeStock.isEmpty()
+        ? Result.success(Map.empty())
         : Result.failure("Input data contains stocks with negative number of shares: " + negativeStock.stream().map(t -> t._1).toList());
-
-    System.out.println(result);
-//    negativeStock.forEach(System.out::println);
   }
 
   @Test
@@ -104,6 +104,7 @@ class MainTest {
     } catch (SQLException e) {
       System.out.println("SQLException: " + e);
     }
+  }
 
   }
 
