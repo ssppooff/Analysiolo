@@ -35,7 +35,7 @@ public class Main {
             .flatMap(date -> date._2.nextStr()
                 .flatMap(txType -> txType._2.nextStr()
                     .flatMap(symbol -> symbol._2.nextInt()
-                        .flatMap(nShares -> nShares._2.nextDbl()
+                        .flatMap(nShares -> nShares._2.nextBigDecimal()
                             .map(price ->
                                 new Tuple<>(
                                     Transaction.transaction(date._1, symbol._1, nShares._1, price._1),
