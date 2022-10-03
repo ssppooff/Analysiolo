@@ -2,6 +2,7 @@ package functionalUtilities;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Scanner;
 
@@ -29,6 +30,13 @@ public class FileReader implements Input {
   public Result<Tuple<Integer, Input>> nextInt() {
     return scanner.hasNextInt()
         ? Result.success(new Tuple<>(scanner.nextInt(), this))
+        : Result.empty();
+  }
+
+  @Override
+  public Result<Tuple<BigDecimal, Input>> nextBigDecimal() {
+    return scanner.hasNextBigDecimal()
+        ? Result.success(new Tuple<>(scanner.nextBigDecimal(), this))
         : Result.empty();
   }
 
