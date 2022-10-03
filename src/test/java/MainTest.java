@@ -4,6 +4,12 @@ import functionalUtilities.FileReader;
 import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Stream;
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
@@ -13,7 +19,12 @@ import stockAPI.Transaction;
 /** TODO
  * Current task & subtasks:
  - Input all the transactions into db
- - nShares integer or double?
+ - Connect to H2 database
+ - Write stuff to database
+ - Read stuff to database
+ - ?? db stuff
+ - nShares integer or double or BiDecimal?
+ - BiDecimal for currency values
 
  If no date is given/what is the value of the portfolio now?
  * Input all the transactions into db
@@ -36,6 +47,7 @@ import stockAPI.Transaction;
  - ~After parsing all transactions, make sure that no nShares is negative for any stock~
  */
 
+@SuppressWarnings({"SqlNoDataSourceInspection", "SqlDialectInspection"})
 class MainTest {
   String path = "src/test/java/testdata.txt";
   Result<FileReader> fR = FileReader.read(path);
@@ -65,8 +77,39 @@ class MainTest {
   }
 
   @Test
+  void h2Test() {
+    String DB_PATH = "";
+    String DB_FILENAME = "";
+    String DB_USER = "sa";
+    String DB_PW = "";
+
+    // Create in-memory database
+    String DP_INMEM = "jdbc:h2:mem:db0";
+
+    // Open connection to database
+    try (Connection db = DriverManager.getConnection("jdbc:h2:mem:db0");
+        Statement statement = db.createStatement()) {
+      statement.execute("create table if not exists transactions (id identity primary key, date timestamp, symbol varchar, numShares int, buyPrice numeric)");
+      statement.execute("insert into transactions (date, symbol, numShares, buyPrice) values ('2022-10-09 15:36:00', 'AVUV', 100, 40.00)");
+      ResultSet res = statement.executeQuery("select * from transactions");
+      while (res.next()) {
+        Transaction tx = Transaction.transaction(
+            res.getObject("date", LocalDate.class),
+            res.getString("symbol"),
+            res.getInt("numShares"),
+            res.getBigDecimal("buyPrice"));
+        System.out.println(tx);
+      }
+      res.close();
+    } catch (SQLException e) {
+      System.out.println("SQLException: " + e);
+    }
+
+  }
+
+  @Test
   void createTx() {
-    Transaction tx = Transaction.transaction(date, symbol, nShares, buyBasePrice);
+    Transaction tx = Transaction.transaction(date, symbol, nShares, buyPrice);
 //    System.out.println(tx.toString());
     fR.flatMap(Main::createTx).forEach(t -> assertEquals(tx, t._1));
   }
