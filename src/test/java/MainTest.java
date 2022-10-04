@@ -63,7 +63,7 @@ class MainTest {
   }
 
   private Map<Symbol, Integer> parseStocks(FileReader input) {
-    return Stream.unfold(input, Main::createTx)
+    return Stream.unfold(input, Main::createTxWithType)
         .foldLeft(Map.empty(), acc -> e -> acc.put(
             e.getSymbol(),
             acc.get(e.getSymbol()).getOrElse(0) + e.getNumShares()));
@@ -106,12 +106,10 @@ class MainTest {
     }
   }
 
-  }
-
   @Test
-  void createTx() {
+  void createTxTest() {
     Transaction tx = Transaction.transaction(date, symbol, nShares, buyPrice);
 //    System.out.println(tx.toString());
-    fR.flatMap(Main::createTx).forEach(t -> assertEquals(tx, t._1));
+    fR.flatMap(Main::createTxWithType).forEach(t -> assertEquals(tx, t._1));
   }
 }
