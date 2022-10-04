@@ -1,13 +1,12 @@
 package functionalUtilities;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+@SuppressWarnings("unused")
 public abstract class Stream<T> {
   @SuppressWarnings("rawtypes")
   private static final Stream EMPTY = new Empty();
@@ -136,7 +135,7 @@ public abstract class Stream<T> {
 
     @Override
     protected Stream<T> cons(T t) {
-      return cons(() -> t, () -> empty());
+      return cons(() -> t, Stream::empty);
     }
   }
   private static class Cons<T> extends Stream<T> {
@@ -170,7 +169,7 @@ public abstract class Stream<T> {
 
     @Override
     protected Stream<T> cons(T t) {
-      return new Cons(() -> t, tail);
+      return new Cons<>(() -> t, tail);
     }
   }
 
@@ -187,17 +186,10 @@ public abstract class Stream<T> {
     return EMPTY;
   }
 
-  public static <T> Stream<T> of(T... l) {
-    // TODO
-    System.out.println("Implement this better");
-
-    var f = Arrays.asList(l);
-    Collections.reverse(f);
-
-    Stream<T> s = empty();
-    for (T t : f)
-      s = cons(t, s);
-    return s;
+  public static <T> Stream<T> of(List<T> l) {
+    return l.isEmpty()
+        ? empty()
+        : new Cons<>(() -> l.get(0), () -> Stream.of(l.subList(1, l.size())));
   }
 
   public static <T> Stream<T> convert(java.util.stream.Stream<T> javaStream) {
