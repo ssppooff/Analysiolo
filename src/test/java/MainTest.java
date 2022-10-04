@@ -1,5 +1,6 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import functionalUtilities.DataBase;
 import functionalUtilities.FileReader;
 import functionalUtilities.Map;
 import functionalUtilities.Result;
@@ -22,6 +23,7 @@ import stockAPI.Transaction;
  - Input all the transactions into db
  - Connect to H2 database using JDBC, write & read stuff to it
  - ?? db stuff
+ - check whether txType and price (pos or neg) corresponds
  - nShares integer or double or BiDecimal?
 
  If no date is given/what is the value of the portfolio now?
@@ -56,6 +58,16 @@ class MainTest {
   static int nShares = 10;
   static BigDecimal buyPrice = new BigDecimal("40.11");
 
+  // Create in-memory database
+  String DB_INMEM = "jdbc:h2:mem:db0";
+
+  // SQL Strings
+  String SQL_CREATE_TABLE = "CREATE TABLE IF NOT EXISTS transactions (id IDENTITY PRIMARY KEY, date TIMESTAMP, symbol VARCHAR, numShares INT, price NUMERIC)";
+  String SQL_INSERT_1 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-10-09 15:36:00', 'AVUV', 100, 40.00)";
+  String SQL_INSERT_2 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-10-12 15:00:00', 'VTI', 40, 50.11)";
+  String SQL_INSERT_3 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-10-12 16:00:00', 'AVUV', -40, 60.00)";
+  String SQL_QUERY = "SELECT date, symbol, numShares, price FROM transactions";
+
   @Test
   void parseTest() {
     var stocks = fR.map(this::parseStocks);
@@ -77,19 +89,56 @@ class MainTest {
   }
 
   @Test
-  void h2Test() {
+  void h2TestFPSingleRow() {
+    Result<DataBase> rDB = DataBase.openDataBase(DB_INMEM);
+    Result<Statement> rS = rDB.flatMap(db ->
+        db.createStatement().flatMap(s -> db.execute(s, List.of(SQL_CREATE_TABLE, SQL_INSERT_1))));
+
+    Result<Transaction> rDBResSet = rDB.flatMap(db -> rS.flatMap(s ->
+                db.executeQuery(s, SQL_QUERY, List.of("date", "symbol", "numShares", "price"))))
+        .flatMap(t -> Main.createTx(t._1))
+        .map(t -> t._1);
+    rDBResSet.forEachOrFail(System.out::println).forEach(System.out::println);
+  }
+
+  @Test
+  void h2TestSingleRow() {
     String DB_PATH = "";
     String DB_FILENAME = "";
     String DB_USER = "sa";
     String DB_PW = "";
 
-    // Create in-memory database
-    String DP_INMEM = "jdbc:h2:mem:db0";
-
     // Open connection to database
-    try (Connection db = DriverManager.getConnection("jdbc:h2:mem:db0");
+    try (Connection db = DriverManager.getConnection(DB_INMEM);
         Statement statement = db.createStatement()) {
-      statement.execute("create table if not exists transactions (id identity primary key, date timestamp, symbol varchar, numShares int, buyPrice numeric)");
+      statement.execute(SQL_CREATE_TABLE);
+      statement.execute(SQL_INSERT_1);
+      ResultSet res = statement.executeQuery(SQL_QUERY);
+      while (res.next()) {
+        Transaction tx = Transaction.transaction(
+            res.getObject("date", LocalDate.class),
+            res.getString("symbol"),
+            res.getInt("numShares"),
+            res.getBigDecimal("price"));
+        System.out.println(tx);
+      }
+      res.close();
+    } catch (SQLException e) {
+      System.out.println("SQLException: " + e);
+    }
+
+  }
+
+  @Test
+  void parseIntoH2() {
+    var stocks = fR.map(this::parseStocks);
+//    stocks.map(this::checkNegativeStocks).forEach(System.out::println);
+
+    try (Connection db = DriverManager.getConnection(DB_INMEM);
+        Statement statement = db.createStatement()) {
+//      DBWriter.executeStatement("create table if not exists transactions (id identity primary key, date timestamp, symbol varchar, numShares int, price numeric),",
+//          s);
+      statement.execute("create table if not exists transactions (id identity primary key, date timestamp, symbol varchar, numShares int, price numeric)");
       statement.execute("insert into transactions (date, symbol, numShares, buyPrice) values ('2022-10-09 15:36:00', 'AVUV', 100, 40.00)");
       ResultSet res = statement.executeQuery("select * from transactions");
       while (res.next()) {
