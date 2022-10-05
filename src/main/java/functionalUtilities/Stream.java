@@ -1,6 +1,7 @@
 package functionalUtilities;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
@@ -96,13 +97,22 @@ public abstract class Stream<T> {
         : f.apply(head()).apply(tail().foldRight(acc, f));
   }
 
+  public <U> U foldRightAbsorbElement(U acc, T zero, Function<T, Function<U, U>> f) {
+    return foldRightAbsorbElement(acc, e -> e.equals(zero), f);
+  }
+
+  public <U> U foldRightAbsorbElement(U acc, Function<T, Boolean> p, Function<T, Function<U, U>> f) {
+    return this.isEmpty() || p.apply(head())
+        ? acc
+        : f.apply(head()).apply(tail().foldRightAbsorbElement(acc, p, f));
+  }
+
   public <U> U foldLeft(U acc, Function<U, Function<T, U>> f) {
 //    return this.isEmpty()
 //        ? acc
 //        : tail().foldLeft(f.apply(acc).apply(head()), f);
     return foldLeft_(this, acc, f).eval();
   }
-
   public static <T, U> U foldLeft(Stream<T> stream, U acc, Function<U, Function<T, U>> f) {
     return foldLeft_(stream, acc, f).eval();
   }
@@ -110,6 +120,19 @@ public abstract class Stream<T> {
     return s.isEmpty()
         ? TailCall.ret(acc)
         : TailCall.suspend(() -> foldLeft_(s.tail(), f.apply(acc).apply(s.head()), f));
+  }
+
+  // Ignores empty values
+  public static <T> Result<Stream<T>> flattenResult(Stream<Result<T>> s) {
+    //noinspection unchecked
+    return s.isEmpty()
+        ? Result.success(empty())
+        : s.head().isEmpty()
+          ? flattenResult(s.tail())
+          : s.head().isFailure()
+            ? (Result<Stream<T>>) s.head()
+            : flattenResult(s.tail()).flatMap(acc -> s.head().map(el ->
+                cons(() -> el, () -> acc)));
   }
 
   private static class Empty<T> extends Stream<T> {
@@ -190,6 +213,10 @@ public abstract class Stream<T> {
     return l.isEmpty()
         ? empty()
         : new Cons<>(() -> l.get(0), () -> Stream.of(l.subList(1, l.size())));
+  }
+
+  public static <T> Stream<T> of(T... arr) {
+    return of(Arrays.asList(arr));
   }
 
   public static <T> Stream<T> convert(java.util.stream.Stream<T> javaStream) {
