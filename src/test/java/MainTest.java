@@ -19,7 +19,9 @@ import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /** TODO
- * Current task & subtasks:
+ ** Current task & subtasks:
+ * Stream of rows of ResultSet
+ ** Stream.java -> flattenResult
  - Input all the transactions into db
  - Connect to H2 database using JDBC, write & read stuff to it
  - ?? db stuff
