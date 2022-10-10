@@ -2,17 +2,12 @@ package functionalUtilities;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
 public class DataBase {
   Connection conn;
-
-//  public static Result<String> executeStatement(String sql, Input input){
-//    return Result.success("");
-//  }
 
   private DataBase(String jdbcURL) throws SQLException {
     super();
@@ -49,16 +44,17 @@ public class DataBase {
   }
 
   public Result<Statement> execute(Statement statement, List<String> sqlStrings) {
-  return Stream.of(sqlStrings)
-        .foldLeft(Result.success(statement), acc -> e -> acc.flatMap(s -> execute(s, e)));
+    Result<Statement> rS = Result.success(statement);
+//    sqlStrings.ma
+    for (String sql : sqlStrings) {
+      rS = rS.flatMap(s -> execute(s, sql));
+    }
+    return rS;
   }
 
   public Result<Tuple<DBResultSet, Statement>> executeQuery(Statement s, String sqlQuery, List<String> colNames) {
     try {
-      ResultSet rSet = s.executeQuery(sqlQuery);
-      return rSet.next()
-          ? Result.success(new Tuple<>(DBResultSet.resultSet(rSet, colNames), s))
-          : Result.empty();
+      return Result.success(new Tuple<>(DBResultSet.resultSet(s.executeQuery(sqlQuery), colNames), s));
     } catch (SQLException e) {
       return Result.failure(e);
     }
