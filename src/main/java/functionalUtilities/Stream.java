@@ -1,9 +1,5 @@
 package functionalUtilities;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -16,6 +12,7 @@ public abstract class Stream<T> {
   public abstract Stream<T> tail();
   public abstract boolean isEmpty();
   protected abstract Stream<T> cons(T t);
+  public abstract Stream<T> take(int i);
 
   public static <T, S> Stream<T> unfold(S s, Function<S, Result<Tuple<T, S>>> f) {
     return f.apply(s).map(t -> cons(() -> t._1, () -> unfold(t._2, f))).getOrElse(empty());
@@ -29,22 +26,8 @@ public abstract class Stream<T> {
     return unfold(i, s -> Result.success(new Tuple<>(s, s + 1)));
   }
 
-  public Stream<T> take(int i) {
-    return null;
-  }
-
   public List<T> toList() {
-    return toList_(new ArrayList<>(), this).eval();
-  }
-
-  private static <T> TailCall<List<T>> toList_(List<T> acc, Stream<T> s) {
-    Function<T, Function<List<T>, List<T>>> cons = t -> l -> {
-      l.add(t);
-      return l;
-    };
-    return s.isEmpty()
-        ? TailCall.ret(acc)
-        : TailCall.suspend(() -> toList_(cons.apply(s.head()).apply(acc), s.tail()));
+    return foldRight(List.<T>empty(), e -> acc -> acc.prepend(e));
   }
 
   public <U> Stream<U> map(Function<T, U> f) {
@@ -54,8 +37,8 @@ public abstract class Stream<T> {
 
   public Stream<T> filter(Function<T, Boolean> p) {
     Stream<T> s = dropWhile(e -> !p.apply(e));
-    return isEmpty()
-        ? this
+    return s.isEmpty()
+        ? s
         : cons(s::head, () -> s.tail().filter(p));
   }
 
@@ -160,6 +143,11 @@ public abstract class Stream<T> {
     protected Stream<T> cons(T t) {
       return cons(() -> t, Stream::empty);
     }
+
+    @Override
+    public Stream<T> take(int i) {
+      return this;
+    }
   }
   private static class Cons<T> extends Stream<T> {
     private final Supplier<T> head;
@@ -192,7 +180,14 @@ public abstract class Stream<T> {
 
     @Override
     protected Stream<T> cons(T t) {
-      return new Cons<>(() -> t, tail);
+      return new Cons<>(() -> t, () -> this);
+    }
+
+    @Override
+    public Stream<T> take(int i) {
+      return i <= 0
+          ? empty()
+          : cons(head, () -> tail().take(i - 1));
     }
   }
 
@@ -212,20 +207,28 @@ public abstract class Stream<T> {
   public static <T> Stream<T> of(List<T> l) {
     return l.isEmpty()
         ? empty()
-        : new Cons<>(() -> l.get(0), () -> Stream.of(l.subList(1, l.size())));
+        : new Cons<>(l::head, () -> Stream.of(l.tail()));
   }
 
+  @SafeVarargs
   public static <T> Stream<T> of(T... arr) {
-    return of(Arrays.asList(arr));
+    Stream<T> res = empty();
+    for (int i = arr.length -1; i >= 0; i--) {
+      res = res.cons(arr[i]);
+    }
+    return res;
   }
 
-  public static <T> Stream<T> convert(java.util.stream.Stream<T> javaStream) {
-    Iterator<T> i = javaStream.iterator();
-    Stream<T> s = empty();
-    while (i.hasNext()) {
-      s = s.cons(i.next());
-    }
-    throw new IllegalStateException("Stream.convert not implemented");
-//    return null;
+  @Override
+  public boolean equals(Object obj) {
+    if ( !(obj instanceof Stream<?> that) )
+      return false;
+
+    List<T> l1 = this.toList();
+    List<?> l2 = that.toList();
+    return l1.size() != l2.size()
+        ? false
+        : l1.zipWith(l2, h1 -> h2 -> h1.equals(h2))
+            .foldLeft(true, acc -> e-> acc && e);
   }
 }
