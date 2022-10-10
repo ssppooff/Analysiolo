@@ -14,6 +14,7 @@ public abstract class Result<T> implements Serializable {
   }
 
   public abstract T getOrElse(final Supplier<T> defaultValue);
+  public abstract T getOrThrow();
   public abstract <U> U foldLeft(U identity, Function<U, Function<T, U>> f);
   public abstract <U> U foldRight(U identity, Function<T, Function<U, U>> f);
   public abstract <U> Result<U> map(Function<T, U> f);
@@ -144,6 +145,11 @@ public abstract class Result<T> implements Serializable {
       return defaultValue.get();
     }
 
+    @Override
+    public T getOrThrow() {
+      throw new IllegalStateException("getOrThrow on empty called");
+    }
+
     /**
      * There is only one instance of Empty, so all Empty are equals.
      */
@@ -187,6 +193,11 @@ public abstract class Result<T> implements Serializable {
     @Override
     public String toString() {
       return String.format("Failure(%s)", exception.getMessage());
+    }
+
+    @Override
+    public T getOrThrow() {
+      throw exception;
     }
 
     @Override
@@ -284,6 +295,11 @@ public abstract class Result<T> implements Serializable {
 
     @Override
     public T getOrElse(Supplier<T> defaultValue) {
+      return value;
+    }
+
+    @Override
+    public T getOrThrow() {
       return value;
     }
 

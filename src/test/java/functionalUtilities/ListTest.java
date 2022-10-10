@@ -1,35 +1,108 @@
 package functionalUtilities;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class ListTest {
 
   @Test
-  void append() {
+  void prepend() {
     List<Integer> l = List.empty();
-    l = l.append(1);
-    l = l.append(2);
-    assertEquals(1, l.get(0));
-    assertEquals(2, l.get(1));
+    l = l.prepend(1);
+    assertEquals(1, l.head());
+    l = l.prepend(2);
+    assertEquals(2, l.head());
   }
 
   @Test
   void flattenResult() {
-    List<Result<String>> l = List.empty();
-    l = l.append(Result.success("one"));
-    l = l.append(Result.success("two"));
-    assertEquals(Result.success("two"), l.get(1));
-    l = l.append(Result.empty());
-    assertNotEquals(Result.empty(), List.flattenResult(l));
+    List<Result<String>> l = List.of(Result.success("one"), Result.success("two"), Result.empty());
+    Result<List<String>> exp = Result.success(List.of("one", "two"));
+    assertEquals(exp, List.flattenResult(l));
 
-    Result<List<String>> r = Result.success(List.empty());
-    r = r.map(list -> list.append("one"));
-    r = r.map(list -> list.append("two"));
-    assertEquals(r, List.flattenResult(l));
-
-    l = l.append(Result.failure("Exception"));
+    l = List.concat(l, List.of(Result.failure("Exception")));
     assertTrue(List.flattenResult(l).isFailure());
+  }
+
+  @Test
+  void head() {
+    assertEquals(1, List.of(1, 2, 3, 4).head());
+  }
+
+  @Test
+  void tail() {
+    assertEquals(List.of(2,3,4), List.of(1, 2, 3, 4).tail());
+  }
+
+  @Test
+  void fpStream() {
+    List<Integer> l = List.of(1, 2, 3);
+    Stream<Integer> s = l.fpStream();
+    Stream<Integer> exp = Stream.from(1).take(3);
+    assertEquals(exp, s);
+  }
+
+  @Test
+  void reverse() {
+    List<Integer> l = List.of(1, 2, 3);
+    assertEquals(List.of(3, 2, 1), l.reverse());
+  }
+
+  @Test
+  void testToString() {
+    List<Integer> l = List.empty();
+    assertEquals("(NIL)", l.toString());
+
+    l = l.prepend(3).prepend(2).prepend(1);
+    assertEquals("(1, 2, 3, NIL)", l.toString());
+  }
+
+  @Test
+  void of() {
+    List<Integer> expected = List.empty();
+    expected = expected.prepend(3).prepend(2).prepend(1);
+    assertEquals(expected, List.of(1, 2, 3));
+
+    assertEquals(expected, List.of(Arrays.asList(1, 2, 3)));
+  }
+
+  @Test
+  void testGetAndGetAt() {
+    List<Integer> l = List.of(1, 2, 3);
+    l.getAt(0).forEachOrFail(node -> assertEquals(1, node.head())).forEach(Assertions::fail);
+    l.getAt(1).forEachOrFail(node -> assertEquals(2, node.head())).forEach(Assertions::fail);
+    l.getAt(2).forEachOrFail(node -> assertEquals(3, node.head())).forEach(Assertions::fail);
+
+    assertEquals(1, l.get(0));
+    assertEquals(2, l.get(1));
+    assertEquals(3, l.get(2));
+  }
+
+  @Test
+  void concat() {
+    List<Integer> l1 = List.of(1, 2, 3, 45);
+    List<Integer> l2 = List.of(6, 7, 8,9, 100);
+    List<Integer> exp = List.of(1, 2, 3, 45, 6, 7, 8, 9, 100);
+    assertEquals(exp, List.concat(l1, l2));
+  }
+
+  @Test
+  void zip() {
+    List<Integer> i = List.of(1, 2, 3, 4);
+    List<String> s = List.of("one", "two", "three");
+    List<Tuple<Integer, String>> exp = List.of(
+        new Tuple<>(1, "one"),
+        new Tuple<>(2, "two"),
+        new Tuple<>(3, "three"));
+    assertEquals(exp, List.zip(i, s));
+  }
+
+  @Test
+  void size() {
+    assertEquals(3, List.of(1, 2, 3).size());
   }
 }
