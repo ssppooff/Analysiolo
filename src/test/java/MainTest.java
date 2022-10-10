@@ -2,6 +2,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import functionalUtilities.DBResultSet;
 import functionalUtilities.DataBase;
 import functionalUtilities.FileReader;
 import functionalUtilities.List;
@@ -23,13 +24,10 @@ import stockAPI.Transaction;
 
 /* TODO Current task & subtasks:
     - nShares integer or double or BigDecimal?
-    - ~~Input all the transactions into db~~
-    - ~~Write methods to write multiple rows into db~~
-    - ~~Write methods to read multiple rows into db~~
 
  If no date is given/what is the value of the portfolio now?
  * Input all the transactions into db
- * Read all the transactions from the db into memory
+ - ~~Read all the transactions from the db into memory~~
  - ask Yahoo Finance the prices of the list
 
  If the user asks for the value of the portfolio at the end of a certain date
@@ -43,6 +41,9 @@ import stockAPI.Transaction;
  - Per Stock: Current price | avg/mean buying price
 
  * Finished tasks
+ - ~~Input all the transactions into db~~
+ - ~~Write methods to write multiple rows into db~~
+ - ~~Write methods to read multiple rows into db~~
  - ~~compile list of all stocks held~~
  - ~~After parsing all transactions, make sure that no nShares is negative for any stock~~
  - ~~compile list of all stock held at this current moment~~
@@ -59,7 +60,7 @@ class MainTest {
   static LocalDate date = LocalDate.parse("2022-02-18");
   static String symbol = "VTI";
   static int nShares = 10;
-  static BigDecimal buyPrice = new BigDecimal("40.11");
+  static BigDecimal price = new BigDecimal("40.11");
 
   // Create in-memory database
   String DB_INMEM = "jdbc:h2:mem:";
@@ -74,14 +75,12 @@ class MainTest {
 
   @Test
   void parseTest() {
-    fR = FileReader.read(pathErrorFile);
-    Result<Map<Symbol, Integer>> res;
-
-    res = FileReader.read(path)
+    Result<Map<Symbol, Integer>> res = FileReader.read(path)
         .map(this::parseStocks)
-        .flatMap(this::checkNegativeStocks);
+        .flatMap(this::checkForNegativeStocks);
     assertTrue(res.isSuccess());
-    res.forEach(m -> m.get(Symbol.symbol("VXUS"))
+
+    res.forEach(map -> map.get(Symbol.symbol("VXUS"))
         .forEachOrFail(nShares -> assertEquals(334, nShares))
         .forEach(Assertions::fail));
   }
@@ -93,28 +92,47 @@ class MainTest {
             acc.get(e.getSymbol()).getOrElse(0) + e.getNumShares()));
   }
 
-  private Result<Map<Symbol, Integer>> checkNegativeStocks(Map<Symbol, Integer> stocks) {
+  private Result<Map<Symbol, Integer>> checkForNegativeStocks(Map<Symbol, Integer> stocks) {
     List<Tuple<Symbol, Integer>> negativeStock = stocks.stream().filter(t -> t._2 < 0).toList();
     return negativeStock.isEmpty()
         ? Result.success(stocks)
         : Result.failure("Input data contains stocks with negative number of shares: " + negativeStock.stream().map(t -> t._1).toList());
   }
 
-  void printFailure(Object obj) {
-    System.out.println("Failed: " + obj.toString());
-  }
-
   @Test
   void h2TestFPSingleRow() {
     Result<DataBase> rDB = DataBase.openDataBase(DB_INMEM);
     Result<Statement> rS = rDB.flatMap(db ->
-        db.createStatement().flatMap(s -> db.execute(s, List.of(SQL_CREATE_TABLE, SQL_INSERT_1))));
+        db.createStatement()
+            .flatMap(s -> db.execute(s, List.of(SQL_CREATE_TABLE, SQL_INSERT_1))));
 
-    Result<Transaction> rDBResSet = rDB.flatMap(db -> rS.flatMap(s ->
-                db.executeQuery(s, SQL_QUERY, List.of("date", "symbol", "numShares", "price"))))
-        .flatMap(t -> Main.createTx(t._1))
+    Result<DBResultSet> resSet = rDB.flatMap(db -> rS.flatMap(s ->
+            db.executeQuery(s, SQL_QUERY, List.of("date", "symbol", "numShares", "price"))))
         .map(t -> t._1);
-    rDBResSet.forEachOrFail(System.out::println).forEach(System.out::println);
+    Result<List<Transaction>> listTx = resSet.flatMap(rs -> rs.flatMapInput(Main::createTx)
+        .map(t -> t._1));
+
+    List<Transaction> testTx = List.of(Transaction.transaction(date, symbol, nShares, price));
+    listTx.forEachOrFail(tx -> assertEquals(testTx, tx)).forEach(Assertions::fail);
+  }
+
+  @Test
+  void h2TestFPMultipleRows() {
+    Result<DataBase> rDB = DataBase.openDataBase(DB_INMEM);
+    Result<Statement> rS = rDB.flatMap(db ->
+        db.createStatement().flatMap(s -> db.execute(s,
+            List.of(SQL_CREATE_TABLE, SQL_INSERT_1, SQL_INSERT_2, SQL_INSERT_3, SQL_INSERT_4))));
+    Result<DBResultSet> resSet = rDB.flatMap(db -> rS.flatMap(s ->
+            db.executeQuery(s, SQL_QUERY, List.of("date", "symbol", "numShares", "price"))))
+        .map(t -> t._1);
+    Result<List<Transaction>> listTx = resSet.flatMap(rs -> rs.flatMapInput(Main::createTx))
+        .map(t -> t._1);
+
+    List<Transaction> testTx = List.of(Transaction.transaction(date, symbol, nShares, price),
+        Transaction.transaction(LocalDate.parse("2022-10-09"), "AVUV", 100, BigDecimal.valueOf(40.00)),
+        Transaction.transaction(LocalDate.parse("2022-10-12"), "VTI", 40, BigDecimal.valueOf(50.11)),
+        Transaction.transaction(LocalDate.parse("2022-10-12"), "AVUV", -40, BigDecimal.valueOf(60.00)));
+    listTx.forEach(tx -> assertEquals(testTx, tx));
   }
 
   @Test
@@ -172,7 +190,7 @@ class MainTest {
     fR = FileReader.read(pathErrorFile);
     assertTrue(fR.flatMap(Main::createTxWithType).isFailure());
 
-    Transaction tx = Transaction.transaction(date, symbol, nShares, buyPrice);
+    Transaction tx = Transaction.transaction(date, symbol, nShares, price);
     FileReader.read(path)
         .flatMap(Main::createTxWithType)
         .forEachOrFail(t -> assertEquals(tx, t._1))
