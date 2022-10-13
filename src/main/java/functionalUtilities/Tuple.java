@@ -9,6 +9,14 @@ public class Tuple<A, B> {
     this._2 = _2;
   }
 
+  public A _1() {
+    return _1;
+  }
+
+  public B _2() {
+    return _2;
+  }
+
   @Override
   public String toString() {
     return String.format("(" + _1 + ", " + _2 + ")");
