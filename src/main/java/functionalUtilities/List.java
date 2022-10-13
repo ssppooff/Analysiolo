@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.ListIterator;
 import java.util.function.Function;
 
+@SuppressWarnings("unused")
 public abstract class List<E> extends AbstractSequentialList<E> {
   @SuppressWarnings("rawtypes")
   private static final List EMPTY = new Nil();
@@ -20,6 +21,22 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     return new Node<>(e, this);
   }
 
+  public static <E, S> List<E> unfold(S s, Function<S, Result<Tuple<E, S>>> f) {
+    return f.apply(s).map(t -> unfold(t._2, f).prepend(t._1)).getOrElse(list());
+  }
+
+  public <T> List<T> map(Function<E, T> f) {
+    return foldRight(List.list(), e -> acc -> acc.prepend(f.apply(e)));
+  }
+
+  public <T> T foldRight(T acc, Function<E, Function<T, T>> f) {
+    return reverse().foldLeft(acc, accx -> e -> f.apply(e).apply(accx));
+  }
+
+  public List<E> filter(Function<E, Boolean> p) {
+    return foldRight(List.list(), e -> acc -> p.apply(e) ? acc.prepend(e) : acc);
+  }
+
   public <T> T foldLeft(T acc, Function<T, Function<E, T>> f) {
     return foldLeft_(this, acc, f).eval();
   }
@@ -30,7 +47,7 @@ public abstract class List<E> extends AbstractSequentialList<E> {
   }
 
   public List<E> reverse() {
-    return foldLeft(empty(), acc -> e -> new Node<>(e, acc));
+    return foldLeft(list(), acc -> acc::prepend);
   }
 
   public static <E> List<E> concat(List<E> l1, List<E> l2) {
@@ -60,9 +77,9 @@ public abstract class List<E> extends AbstractSequentialList<E> {
             : Result.success(new Tuple<>(l.head(), l.tail())));
   }
 
-  public static <T> Result<List<T>> flattenResult(List<Result<T>> listResults) {
-    Result<List<T>> rList = Result.success(empty());
-    for (Result<T> rElement : listResults.reverse()) {
+  public static <E> Result<List<E>> flattenResult(List<Result<E>> listResults) {
+    Result<List<E>> rList = Result.success(list());
+    for (Result<E> rElement : listResults.reverse()) {
       if (rElement.isEmpty())
         continue;
       rList = prependResult(rElement, rList);
@@ -86,7 +103,7 @@ public abstract class List<E> extends AbstractSequentialList<E> {
   }
   public static <E, T, U> List<U> zipWith(List<E> l1, List<T> l2, Function<E, Function<T, U>> f) {
     return l1.isEmpty() || l2.isEmpty()
-        ? empty()
+        ? list()
         : new Node<>(f.apply(l1.head()).apply(l2.head()), zipWith(l1.tail(), l2.tail(), f));
   }
 
@@ -231,13 +248,22 @@ public abstract class List<E> extends AbstractSequentialList<E> {
   }
 
   @SuppressWarnings("unchecked")
-  public static <T> List<T> empty() {
+  public static <T> List<T> list() {
     return EMPTY;
   }
 
   @SafeVarargs
+  public static <E> List<E> list(E... es) {
+    return of(es);
+  }
+
+  public static <E> List<E> list(Collection<? extends E> c) {
+    return of(c);
+  }
+
+  @SafeVarargs
   public static <E> List<E> of(E... es) {
-    List<E> l = empty();
+    List<E> l = list();
     for (int i = es.length - 1; i >= 0; i--)
       l = new Node<>(es[i], l);
     return l;
@@ -245,7 +271,7 @@ public abstract class List<E> extends AbstractSequentialList<E> {
 
   public static <E> List<E> of(Collection<? extends E> c) {
     ListIterator<? extends E> it = c.stream().toList().listIterator(c.size());
-    List<E> res = empty();
+    List<E> res = list();
     while (it.hasPrevious())
       res = new Node<>(it.previous(), res);
     return res;

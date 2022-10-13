@@ -27,7 +27,7 @@ public abstract class Stream<T> {
   }
 
   public List<T> toList() {
-    return foldRight(List.<T>empty(), e -> acc -> acc.prepend(e));
+    return foldRight(List.<T>list(), e -> acc -> acc.prepend(e));
   }
 
   public <U> Stream<U> map(Function<T, U> f) {

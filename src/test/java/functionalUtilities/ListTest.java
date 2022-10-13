@@ -11,7 +11,7 @@ class ListTest {
 
   @Test
   void prepend() {
-    List<Integer> l = List.empty();
+    List<Integer> l = List.list();
     l = l.prepend(1);
     assertEquals(1, l.head());
     l = l.prepend(2);
@@ -54,7 +54,7 @@ class ListTest {
 
   @Test
   void testToString() {
-    List<Integer> l = List.empty();
+    List<Integer> l = List.list();
     assertEquals("(NIL)", l.toString());
 
     l = l.prepend(3).prepend(2).prepend(1);
@@ -63,7 +63,7 @@ class ListTest {
 
   @Test
   void of() {
-    List<Integer> expected = List.empty();
+    List<Integer> expected = List.list();
     expected = expected.prepend(3).prepend(2).prepend(1);
     assertEquals(expected, List.of(1, 2, 3));
 
@@ -104,5 +104,19 @@ class ListTest {
   @Test
   void size() {
     assertEquals(3, List.of(1, 2, 3).size());
+  }
+
+  @Test
+  void filter() {
+    List<Integer> l = Stream.from(1).take(10).toList();
+    List<Integer> exp = List.list(2, 4, 6, 8, 10);
+    assertEquals(exp, l.filter(i -> i % 2 == 0));
+  }
+
+  @Test
+  void testReverse() {
+    List<Integer> l = Stream.from(1).take(3).toList();
+    List<Integer> exp = List.list(3, 2, 1);
+    assertEquals(exp, l.reverse());
   }
 }
