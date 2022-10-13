@@ -2,6 +2,7 @@ package functionalUtilities;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
@@ -20,6 +21,14 @@ public class DataBase {
     } catch (SQLException e) {
       return Result.failure(e);
     }
+  }
+
+  public Result<PreparedStatement> prepareStatemet(String sqlString) {
+      try {
+        return Result.success(conn.prepareStatement(sqlString));
+      } catch (SQLException e) {
+        return Result.failure(e);
+      }
   }
 
   public Result<Statement> createStatement() {
