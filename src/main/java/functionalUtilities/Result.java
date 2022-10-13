@@ -5,6 +5,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+@SuppressWarnings("unused")
 public abstract class Result<T> implements Serializable {
 
   @SuppressWarnings("rawtypes")
@@ -227,7 +228,7 @@ public abstract class Result<T> implements Serializable {
 
     @Override
     public Result<T> failIfEmpty(String message) {
-      return failure(message);
+      return failure(new RuntimeException(message, exception));
     }
 
     @Override
