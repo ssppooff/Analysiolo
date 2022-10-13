@@ -8,7 +8,6 @@ import functionalUtilities.FileReader;
 import functionalUtilities.List;
 import functionalUtilities.Map;
 import functionalUtilities.Result;
-import functionalUtilities.Stream;
 import functionalUtilities.Tuple;
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -23,11 +22,12 @@ import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /* TODO Current task & subtasks:
+    * Write multiple transactions into db in FP style
+    - Parse data from file, check whether it is valid, if so, put into db
     - nShares integer or double or BigDecimal?
 
  If no date is given/what is the value of the portfolio now?
  * Input all the transactions into db
- - ~~Read all the transactions from the db into memory~~
  - ask Yahoo Finance the prices of the list
 
  If the user asks for the value of the portfolio at the end of a certain date
@@ -50,6 +50,9 @@ import stockAPI.Transaction;
  - ~~Connect to H2 database using JDBC, write & read stuff to it~~
  - ~~Stream.java -> flattenResult~~
  - ~~check whether txType and price (pos or neg) corresponds~~
+ - ~~Read all the transactions from the db into memory~~
+    - ~~When parsing from file, make sure to return failure of createTxWithType()~~
+    - ~~List.unfold() where you preserve the Return.failure()~~
  */
 
 @SuppressWarnings({"SqlNoDataSourceInspection", "SqlDialectInspection"})
@@ -75,19 +78,39 @@ class MainTest {
 
   @Test
   void parseTest() {
-    Result<Map<Symbol, Integer>> res = FileReader.read(path)
+    assertTrue(FileReader.read(pathErrorFile)
+        .flatMap(this::parseTransactions).isFailure());
+
+    Result<Map<Symbol, Integer>> rStocks = FileReader.read(pathErrorFile)
+        .map(fR -> List.unfold(fR, Main::createTxWithCheck))
+        .flatMap(l -> List.flattenResult(l.filter(Result::isSuccess)))
         .map(this::parseStocks)
         .flatMap(this::checkForNegativeStocks);
-    assertTrue(res.isSuccess());
+    assertTrue(rStocks.isFailure());
 
-    res.forEach(map -> map.get(Symbol.symbol("VXUS"))
+    rStocks = FileReader.read(path)
+        .flatMap(this::parseTransactions)
+        .map(this::parseStocks)
+        .flatMap(this::checkForNegativeStocks);
+    assertTrue(rStocks.isSuccess());
+
+    rStocks.forEach(map -> map.get(Symbol.symbol("VXUS"))
         .forEachOrFail(nShares -> assertEquals(334, nShares))
         .forEach(Assertions::fail));
+
+    Transaction expTx = Transaction.transaction(date, symbol, nShares, price);
+    FileReader.read(path)
+        .flatMap(Main::createTxWithCheck)
+        .forEach(t -> t._1.forEachOrFail(tx ->
+            assertEquals(expTx, tx)).forEach(Assertions::fail));
   }
 
-  private Map<Symbol, Integer> parseStocks(FileReader input) {
-    return Stream.unfold(input, Main::createTxWithType)
-        .foldLeft(Map.empty(), acc -> e -> acc.put(
+  private Result<List<Transaction>> parseTransactions(FileReader input) {
+    return List.flattenResult(List.unfold(input, Main::createTxWithCheck));
+  }
+
+  private Map<Symbol, Integer> parseStocks(List<Transaction> l) {
+    return l.foldLeft(Map.empty(), acc -> e -> acc.put(
             e.getSymbol(),
             acc.get(e.getSymbol()).getOrElse(0) + e.getNumShares()));
   }
@@ -165,7 +188,9 @@ class MainTest {
   @Test
   void parseIntoH2() {
     fR = FileReader.read(path);
-    Result<Map<Symbol, Integer>> stocks = fR.map(this::parseStocks);
+    Result<Map<Symbol, Integer>> stocks = fR
+        .flatMap(this::parseTransactions)
+        .map(this::parseStocks);
 
     try (Connection db = DriverManager.getConnection(DB_INMEM);
         Statement statement = db.createStatement()) {
@@ -187,13 +212,16 @@ class MainTest {
 
   @Test
   void createTxTest() {
-    fR = FileReader.read(pathErrorFile);
-    assertTrue(fR.flatMap(Main::createTxWithType).isFailure());
+    Result<Transaction> rTx = FileReader.read(pathErrorFile)
+        .flatMap(Main::createTxWithCheck)
+        .flatMap(Tuple::_1);
+    assertTrue(rTx.isFailure());
 
-    Transaction tx = Transaction.transaction(date, symbol, nShares, price);
-    FileReader.read(path)
-        .flatMap(Main::createTxWithType)
-        .forEachOrFail(t -> assertEquals(tx, t._1))
+    Transaction expTx = Transaction.transaction(date, symbol, nShares, price);
+    rTx = FileReader.read(path)
+        .flatMap(Main::createTxWithCheck)
+        .flatMap(Tuple::_1);
+    rTx.forEachOrFail(tx -> assertEquals(expTx, tx))
         .forEach(Assertions::fail);
   }
 }
