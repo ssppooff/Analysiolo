@@ -21,13 +21,6 @@ public class Transaction {
     return new Transaction(date, symbol, numShares, buyPrice);
   }
 
-//  public static Transaction transaction(LocalDate date, String symbol, int numShares,
-//      Double buyPrice) {
-//    noinspection WrapperTypeMayBePrimitive
-//    Double basePrice = buyPrice * 100d;
-//    return new Transaction(date, symbol, numShares, basePrice.intValue());
-//  }
-
   @Override
   public boolean equals(Object obj) {
     if ( !(obj instanceof Transaction that) )
@@ -50,5 +43,13 @@ public class Transaction {
 
   public int getNumShares() {
     return numShares;
+  }
+
+  public LocalDate getDate() {
+    return date;
+  }
+
+  public BigDecimal getPrice() {
+    return price;
   }
 }

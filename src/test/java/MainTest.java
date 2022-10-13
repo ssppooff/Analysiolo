@@ -12,6 +12,7 @@ import functionalUtilities.Tuple;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -22,7 +23,7 @@ import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /* TODO Current task & subtasks:
-    * Write multiple transactions into db in FP style
+    * Refactor into DataSource.java
     - Parse data from file, check whether it is valid, if so, put into db
     - nShares integer or double or BigDecimal?
 
@@ -41,18 +42,19 @@ import stockAPI.Transaction;
  - Per Stock: Current price | avg/mean buying price
 
  * Finished tasks
- - ~~Input all the transactions into db~~
- - ~~Write methods to write multiple rows into db~~
- - ~~Write methods to read multiple rows into db~~
- - ~~compile list of all stocks held~~
- - ~~After parsing all transactions, make sure that no nShares is negative for any stock~~
- - ~~compile list of all stock held at this current moment~~
- - ~~Connect to H2 database using JDBC, write & read stuff to it~~
- - ~~Stream.java -> flattenResult~~
- - ~~check whether txType and price (pos or neg) corresponds~~
- - ~~Read all the transactions from the db into memory~~
-    - ~~When parsing from file, make sure to return failure of createTxWithType()~~
-    - ~~List.unfold() where you preserve the Return.failure()~~
+   - ~~Input all the transactions into db~~
+   - ~~Write methods to write multiple rows into db~~
+   - ~~Write methods to read multiple rows into db~~
+   - ~~compile list of all stocks held~~
+   - ~~After parsing all transactions, make sure that no nShares is negative for any stock~~
+   - ~~compile list of all stock held at this current moment~~
+   - ~~Connect to H2 database using JDBC, write & read stuff to it~~
+   - ~~Stream.java -> flattenResult~~
+   - ~~check whether txType and price (pos or neg) corresponds~~
+   - ~~Read all the transactions from the db into memory~~
+   - ~~When parsing from file, make sure to return failure of createTxWithType()~~
+   - ~~List.unfold() where you preserve the Return.failure()~~
+   - ~~Write multiple transactions into db in FP style~~
  */
 
 @SuppressWarnings({"SqlNoDataSourceInspection", "SqlDialectInspection"})
@@ -69,12 +71,63 @@ class MainTest {
   String DB_INMEM = "jdbc:h2:mem:";
 
   // SQL Strings
-  String SQL_CREATE_TABLE = "CREATE TABLE IF NOT EXISTS transactions (id IDENTITY PRIMARY KEY, date DATE, symbol VARCHAR, numShares INT, price NUMERIC(20,3))";
-  String SQL_INSERT_1 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-02-18', 'VTI', 10, 40.11)";
-  String SQL_INSERT_2 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-10-09', 'AVUV', 100, 40.00)";
-  String SQL_INSERT_3 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-10-12', 'VTI', 40, 50.11)";
-  String SQL_INSERT_4 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-10-12', 'AVUV', -40, 60.00)";
-  String SQL_QUERY = "SELECT date, symbol, numShares, price FROM transactions";
+  static final String SQL_CREATE_TABLE = "CREATE TABLE IF NOT EXISTS transactions (id IDENTITY PRIMARY KEY, date DATE, symbol VARCHAR, numShares INT, price NUMERIC(20,3))";
+  static final String SQL_INSERT_1 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-02-18', 'VTI', 10, 40.11)";
+  static final String SQL_INSERT_2 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-10-09', 'AVUV', 100, 40.00)";
+  static final String SQL_INSERT_3 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-10-12', 'VTI', 40, 50.11)";
+  static final String SQL_INSERT_4 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-10-12', 'AVUV', -40, 60.00)";
+  static final String SQL_QUERY = "SELECT date, symbol, numShares, price FROM transactions";
+  static final String SQL_INSERT_PREP = "INSERT INTO transactions (date, symbol, numShares, price) VALUES (?, ?, ?, ?)";
+
+  @Test
+  void parseFPIntoDB() {
+    Result<DataBase> rDB = DataBase.openDataBase(DB_INMEM);
+    Result<Statement> rStmt = rDB.flatMap(db ->
+        db.createStatement().flatMap(s -> db.execute(s, SQL_CREATE_TABLE)));
+
+    Result<List<Transaction>> listTx = FileReader.read(path)
+        .flatMap(this::parseTransactions);
+    assertTrue(listTx.map(this::parseStocks).flatMap(this::checkForNegativeStocks).isSuccess());
+
+    // TODO: create (prepared?) statement to put all transactions into the db
+    Result<PreparedStatement> rPrepStmt = rDB.flatMap(db -> db.prepareStatemet(SQL_INSERT_PREP));
+
+    var foo = listTx.flatMap(l ->
+        l.foldLeft(rPrepStmt, acc -> e -> acc.flatMap(ps -> insertTxData(ps, e).flatMap(this::executeStatement))));
+    assertTrue(foo.isSuccess());
+
+    Result<DBResultSet> resSet = rDB.flatMap(db -> rStmt.flatMap(s ->
+            db.executeQuery(s, SQL_QUERY, List.of("date", "symbol", "numShares", "price"))))
+        .map(Tuple::_1);
+    Result<List<Transaction>> resListTx = resSet.flatMap(rs -> rs.flatMapInput(Main::createTx))
+        .map(Tuple::_1);
+    listTx.forEach(lexp -> resListTx.forEachOrFail(lres ->
+            assertEquals(lexp, lres))
+        .forEach(Assertions::fail));
+  }
+
+  Result<PreparedStatement> insertTxData(PreparedStatement ps, Transaction tx) {
+    try {
+      ps.setString(1, tx.getDate().toString());
+      ps.setString(2, tx.getSymbol().toString());
+      ps.setInt(3, tx.getNumShares());
+      ps.setBigDecimal(4, tx.getPrice());
+      return Result.success(ps);
+    } catch (SQLException e) {
+      return Result.failure(e);
+    }
+  }
+
+  Result<PreparedStatement> executeStatement(PreparedStatement ps) {
+    try {
+      if (ps.execute()) {
+        throw new IllegalStateException("Prepared Statement was a query instead of just an INSERT");
+      }
+      return Result.success(ps);
+    } catch (SQLException e) {
+      return Result.failure(e);
+    }
+  }
 
   @Test
   void parseTest() {
