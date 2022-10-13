@@ -41,19 +41,19 @@ public class Main {
                                 price._2)))));
     }
 
-    public static Result<Tuple<Transaction, Input>> createTxWithType(Input input) {
+    public static Result<Tuple<Result<Transaction>, Input>> createTxWithCheck(Input input) {
       return input.nextDate()
           .flatMap(date -> date._2.nextStr()
               .flatMap(txType -> txType._2.nextStr()
                   .flatMap(symbol -> symbol._2.nextInt()
                       .flatMap(nShares -> nShares._2.nextBigDecimal()
-                          .flatMap(price ->
+                          .map(price ->
                               txType._1.equalsIgnoreCase("BUY") && nShares._1 > 0
                               || txType._1.equalsIgnoreCase("SELL") && nShares._1 < 0
-                                  ? Result.success(
-                                      new Tuple<>(Transaction.transaction(date._1, symbol._1, nShares._1, price._1),
-                                                  price._2))
-                                  : Result.failure("Buy or sell not correctly specified")
+                                  ? new Tuple<>(Result.success(
+                                  Transaction.transaction(date._1, symbol._1, nShares._1, price._1)),
+                                  price._2)
+                                  : new Tuple<>(Result.failure("Buy or sell not correctly specified"), price._2)
                           )))));
     }
 }
