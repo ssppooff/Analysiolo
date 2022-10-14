@@ -46,23 +46,76 @@ class DataSourceTest {
     assertTrue(r.isFailure(), r.toString());
   }
 
+  void listPerLine(List<Transaction> l) {
+    System.out.println(
+        l.foldLeft(new StringBuilder(), s -> tx ->
+            s.append(tx.toString()).append("\n")));
+  }
+
+  Result<List<Transaction>> readTx(String path) {
+    Result<FileReader> fR = FileReader.read(path);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
+    assertSuccess(listTx.map(Parser::parseStocks).flatMap(Parser::checkForNegativeStocks));
+    assertSuccess(fR.flatMap(FileReader::close));
+    return listTx;
+  }
+
+  Result<DataBase> readTxIntoDB(List<Transaction> l) {
+    // Create prepared statement to put all transactions into the db
+    Result<DataBase> rDB = DataBase.openDataBase(DB_INMEM);
+    rDB = rDB.flatMap(db -> db.execute(List.of(SQL_CREATE_TABLE)));
+    Result<PreparedStatement> rPrepStmt = rDB.flatMap(db -> db.prepareStatement(SQL_INSERT_PREP));
+
+    assertSuccess(
+        l.foldLeft(rPrepStmt, acc -> e ->
+        acc.flatMap(ps -> setTxData(ps, e).flatMap(this::executeStatement))));
+
+    // Close all resources
+    assertSuccess(
+        rPrepStmt.flatMap(ps -> {
+          try {
+            ps.close();
+            return Result.success(ps.isClosed());
+          } catch (SQLException e) {
+            return Result.failure(e);
+          }
+        }));
+
+    return rDB;
+  }
+
+  Result<PreparedStatement> setTxData(PreparedStatement ps, Transaction tx) {
+    try {
+      ps.setString(1, tx.getDate().toString());
+      ps.setString(2, tx.getSymbol().toString());
+      ps.setInt(3, tx.getNumShares());
+      ps.setBigDecimal(4, tx.getPrice());
+      return Result.success(ps);
+    } catch (SQLException e) {
+      return Result.failure(e);
+    }
+  }
+
+  Result<PreparedStatement> executeStatement(PreparedStatement ps) {
+    try {
+      if (ps.execute()) {
+        throw new IllegalStateException("Prepared Statement was a query instead of just an INSERT");
+      }
+      return Result.success(ps);
+    } catch (SQLException e) {
+      return Result.failure(e);
+    }
+  }
+
   @Test
   void parseFPIntoDB() {
     Result<FileReader> fR = FileReader.read(path);
     Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
     assertSuccess(listTx.map(Parser::parseStocks).flatMap(Parser::checkForNegativeStocks));
 
-    // Create prepared statement to put all transactions into the db
-    Result<DataBase> rDB = DataBase.openDataBase(DB_INMEM);
-    rDB = rDB.flatMap(db -> db.execute(List.of(SQL_CREATE_TABLE)));
-    Result<PreparedStatement> rPrepStmt = rDB.flatMap(db -> db.prepareStatement(SQL_INSERT_PREP));
-
-    var foo = listTx.flatMap(l ->
-        l.foldLeft(rPrepStmt, acc -> e -> acc.flatMap(ps -> setTxData(ps, e).flatMap(this::executeStatement))));
-    assertSuccess(foo);
-
     // Check that all transactions were input correctly
-    var resListTx = rDB.flatMap(
+    Result<DataBase> rDB = listTx.flatMap(this::readTxIntoDB);
+    Result<List<Transaction>> resListTx = rDB.flatMap(
         db -> db.mapQuery(SQL_QUERY, List.of("date", "symbol", "numShares", "price"), Parser::createTx)
             .map(Tuple::_1));
     listTx.forEach(lexp -> resListTx.forEachOrFail(lres ->
@@ -70,15 +123,6 @@ class DataSourceTest {
         .forEach(Assertions::fail));
 
     // Close all database resources
-    var res = rPrepStmt.flatMap(ps -> {
-      try {
-        ps.close();
-        return Result.success(ps.isClosed());
-      } catch (SQLException e) {
-        return Result.failure(e);
-      }
-    });
-    assertSuccess(res);
     assertSuccess(rDB.flatMap(DataBase::close));
     assertSuccess(fR.flatMap(FileReader::close));
   }
@@ -112,26 +156,16 @@ class DataSourceTest {
     listTx.forEach(tx -> assertEquals(testTx, tx));
   }
 
-  Result<PreparedStatement> setTxData(PreparedStatement ps, Transaction tx) {
-    try {
-      ps.setString(1, tx.getDate().toString());
-      ps.setString(2, tx.getSymbol().toString());
-      ps.setInt(3, tx.getNumShares());
-      ps.setBigDecimal(4, tx.getPrice());
-      return Result.success(ps);
-    } catch (SQLException e) {
-      return Result.failure(e);
-    }
-  }
+  @Test
+  void getTransactionsDesc() {
+    Result<List<Transaction>> listTx = readTx(path);
+    Result<DataSource> rDS = DataSource.openInMemory();
+    rDS = rDS.flatMap(ds -> listTx.flatMap(ds::insertTransaction));
+    var res = rDS.flatMap(DataSource::getTransactions);
+    assertSuccess(res);
+    res.map(Tuple::_1).forEach(this::listPerLine);
 
-  Result<PreparedStatement> executeStatement(PreparedStatement ps) {
-    try {
-      if (ps.execute()) {
-        throw new IllegalStateException("Prepared Statement was a query instead of just an INSERT");
-      }
-      return Result.success(ps);
-    } catch (SQLException e) {
-      return Result.failure(e);
-    }
+    rDS = res.map(Tuple::_2);
+    assertSuccess(rDS.map(DataSource::close));
   }
 }

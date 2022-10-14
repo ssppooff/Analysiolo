@@ -17,7 +17,7 @@ public class DataSource {
   // SQL Strings
   private static final String SQL_CREATE_TABLE = "CREATE TABLE IF NOT EXISTS transactions (id IDENTITY PRIMARY KEY, date DATE, symbol VARCHAR, numShares INT, price NUMERIC(20,3))";
   private static final String SQL_INSERT_PREP = "INSERT INTO transactions (date, symbol, numShares, price) VALUES (?, ?, ?, ?)";
-  private static final String SQL_QUERY = "SELECT date, symbol, numShares, price FROM transactions";
+  private static final String SQL_QUERY_DESC = "SELECT date, symbol, numShares, price FROM transactions ORDER BY date DESC";
 
   private DataSource(DataBase db, PreparedStatement ps) {
     super();
@@ -26,7 +26,7 @@ public class DataSource {
   }
 
   public Result<Tuple<List<Transaction>, DataSource>> getTransactions() {
-    return db.mapQuery(SQL_QUERY, List.of("date", "symbol", "numShares", "price"),
+    return db.mapQuery(SQL_QUERY_DESC, List.of("date", "symbol", "numShares", "price"),
             DataSource::createTx)
         .map(t -> new Tuple<>(t._1, this));
   }
