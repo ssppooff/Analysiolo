@@ -32,7 +32,7 @@ public class DataBase {
     }
   }
 
-  public Result<PreparedStatement> prepareStatemet(String sqlString) {
+  public Result<PreparedStatement> prepareStatement(String sqlString) {
       try {
         return Result.success(conn.prepareStatement(sqlString));
       } catch (SQLException e) {

@@ -13,6 +13,7 @@ public abstract class Stream<T> {
   public abstract boolean isEmpty();
   protected abstract Stream<T> cons(T t);
   public abstract Stream<T> take(int i);
+  public abstract <U> Stream<U> map(Function<T, U> f);
 
   public static <T, S> Stream<T> unfold(S s, Function<S, Result<Tuple<T, S>>> f) {
     return f.apply(s).map(t -> cons(() -> t._1, () -> unfold(t._2, f))).getOrElse(empty());
@@ -28,11 +29,6 @@ public abstract class Stream<T> {
 
   public List<T> toList() {
     return foldRight(List.<T>list(), e -> acc -> acc.prepend(e));
-  }
-
-  public <U> Stream<U> map(Function<T, U> f) {
-//    foldRight(Stream.empty(), e -> acc -> cons(() -> f.apply(e), () -> foldRight(acc.con)
-    return cons(() -> f.apply(head()), () -> tail().map(f));
   }
 
   public Stream<T> filter(Function<T, Boolean> p) {
@@ -148,7 +144,13 @@ public abstract class Stream<T> {
     public Stream<T> take(int i) {
       return this;
     }
+
+    @Override
+    public <U> Stream<U> map(Function<T, U> f) {
+      return empty();
+    }
   }
+
   private static class Cons<T> extends Stream<T> {
     private final Supplier<T> head;
     private final Supplier<Stream<T>> tail;
@@ -188,6 +190,11 @@ public abstract class Stream<T> {
       return i <= 0
           ? empty()
           : cons(head, () -> tail().take(i - 1));
+    }
+
+    @Override
+    public <U> Stream<U> map(Function<T, U> f) {
+      return cons(() -> f.apply(head.get()), () -> tail().map(f));
     }
   }
 
