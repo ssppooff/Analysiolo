@@ -35,8 +35,8 @@ class ParserTest {
 
   @Test
   void createTxTest() {
-    Result<Transaction> rTx = FileReader.read(pathErrorFile)
-        .flatMap(Parser::createTxWithCheck)
+    Result<FileReader> fR = FileReader.read(pathErrorFile);
+    Result<Transaction> rTx = fR.flatMap(Parser::createTxWithCheck)
         .flatMap(Tuple::_1);
     assertFailure(rTx);
 
@@ -46,34 +46,42 @@ class ParserTest {
         .flatMap(Tuple::_1);
     rTx.forEachOrFail(tx -> assertEquals(expTx, tx))
         .forEach(Assertions::fail);
+
+    assertSuccess(fR.flatMap(FileReader::close));
   }
 
   @Test
   void parseTest() {
-    assertFailure(FileReader.read(pathErrorFile)
-        .flatMap(Parser::parseTransactions));
+    Result<FileReader> rFR = FileReader.read(pathErrorFile);
+    assertFailure(rFR.flatMap(Parser::parseTransactions));
+    assertSuccess(rFR.flatMap(FileReader::close));
 
-    Result<Map<Symbol, Integer>> rStocks = FileReader.read(pathErrorFile)
+    rFR = FileReader.read(pathErrorFile);
+    Result<Map<Symbol, Integer>> rStocks = rFR
         .map(fR -> List.unfold(fR, Parser::createTxWithCheck))
         .flatMap(l -> List.flattenResult(l.filter(Result::isSuccess)))
         .map(Parser::parseStocks)
         .flatMap(Parser::checkForNegativeStocks);
     assertFailure(rStocks);
+    assertSuccess(rFR.flatMap(FileReader::close));
 
-    rStocks = FileReader.read(path)
+    rFR = FileReader.read(path);
+    rStocks =  rFR
         .flatMap(Parser::parseTransactions)
         .map(Parser::parseStocks)
         .flatMap(Parser::checkForNegativeStocks);
     assertSuccess(rStocks);
+    assertSuccess(rFR.flatMap(FileReader::close));
 
     rStocks.forEach(map -> map.get(Symbol.symbol("VXUS"))
         .forEachOrFail(nShares -> assertEquals(334, nShares))
         .forEach(Assertions::fail));
 
     Transaction expTx = Transaction.transaction(date, symbol, nShares, price);
-    FileReader.read(path)
-        .flatMap(Parser::createTxWithCheck)
+    rFR = FileReader.read(path);
+    rFR.flatMap(Parser::createTxWithCheck)
         .forEach(t -> t._1.forEachOrFail(tx ->
             assertEquals(expTx, tx)).forEach(Assertions::fail));
+    assertSuccess(rFR.flatMap(FileReader::close));
   }
 }

@@ -55,4 +55,9 @@ public class FileReader implements Input {
       return Result.failure(e);
     }
   }
+
+  public Result<Nothing> close() {
+    scanner.close();
+    return Result.success(Nothing.instance);
+  }
 }
