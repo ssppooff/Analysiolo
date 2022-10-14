@@ -5,7 +5,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.List;
+import java.util.function.Function;
 
 public class DataBase {
   Connection conn;
@@ -23,6 +23,15 @@ public class DataBase {
     }
   }
 
+  public Result<Boolean> close() {
+    try {
+      conn.close();
+      return Result.success(conn.isClosed());
+    } catch (SQLException e) {
+      return Result.failure(e);
+    }
+  }
+
   public Result<PreparedStatement> prepareStatemet(String sqlString) {
       try {
         return Result.success(conn.prepareStatement(sqlString));
@@ -31,39 +40,28 @@ public class DataBase {
       }
   }
 
-  public Result<Statement> createStatement() {
-      try {
-        return Result.success(conn.createStatement());
-      } catch (SQLException e) {
-        return Result.failure(e);
-      }
+  public Result<DataBase> execute(String sqlString) {
+    return execute(List.of(sqlString));
   }
 
-  public Result<Statement> execute(Result<Statement> rS, String sqlString) {
-    return rS.flatMap(s -> execute(s, sqlString));
-  }
+  public Result<DataBase> execute(List<String> sqlStrings) {
+    try (Statement s = conn.createStatement()) {
+      for (String sql : sqlStrings)
+        if (s.execute(sql))
+          throw new IllegalStateException("Prepared Statement was a query instead of just an INSERT");
 
-  public Result<Statement> execute(Statement s, String sqlString) {
-    try {
-      s.execute(sqlString);
-      return Result.success(s);
+      return Result.success(this);
     } catch (SQLException e) {
       return Result.failure(e);
     }
   }
 
-  public Result<Statement> execute(Statement statement, List<String> sqlStrings) {
-    Result<Statement> rS = Result.success(statement);
-//    sqlStrings.ma
-    for (String sql : sqlStrings) {
-      rS = rS.flatMap(s -> execute(s, sql));
-    }
-    return rS;
-  }
-
-  public Result<Tuple<DBResultSet, Statement>> executeQuery(Statement s, String sqlQuery, List<String> colNames) {
-    try {
-      return Result.success(new Tuple<>(DBResultSet.resultSet(s.executeQuery(sqlQuery), colNames), s));
+  public <T> Result<Tuple<List<T>, DataBase>> mapQuery(String sqlQuery, List<String> colNames, Function<DBResultSet, Result<Tuple<T, Input>>> f) {
+    try (Statement s = conn.createStatement()) {
+      Result<List<T>> resList =  DBResultSet.resultSet(s.executeQuery(sqlQuery), colNames)
+          .flatMapInput(f)
+          .map(Tuple::_1);
+      return resList.map(t -> new Tuple<>(t, this));
     } catch (SQLException e) {
       return Result.failure(e);
     }

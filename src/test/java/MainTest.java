@@ -2,7 +2,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import functionalUtilities.DBResultSet;
 import functionalUtilities.DataBase;
 import functionalUtilities.FileReader;
 import functionalUtilities.List;
@@ -55,6 +54,10 @@ import stockAPI.Transaction;
    - ~~When parsing from file, make sure to return failure of createTxWithType()~~
    - ~~List.unfold() where you preserve the Return.failure()~~
    - ~~Write multiple transactions into db in FP style~~
+   - ~~Close statements, preparedStatements and database~~
+   - ~~Refactor code that gets data out of DataBase, eliminate use of statements and ResultSets
+      from MainTest.java~~
+   - ~~Can I remove preparedStatements from DataBase.java?~~
  */
 
 @SuppressWarnings({"SqlNoDataSourceInspection", "SqlDialectInspection"})
@@ -79,31 +82,48 @@ class MainTest {
   static final String SQL_QUERY = "SELECT date, symbol, numShares, price FROM transactions";
   static final String SQL_INSERT_PREP = "INSERT INTO transactions (date, symbol, numShares, price) VALUES (?, ?, ?, ?)";
 
+  void assertSuccess(Result<?> r) {
+    assertTrue(r.isSuccess(), r.toString());
+  }
+
+  void assertFailure(Result<?> r) {
+    assertTrue(r.isFailure(), r.toString());
+  }
+
   @Test
   void parseFPIntoDB() {
-    Result<DataBase> rDB = DataBase.openDataBase(DB_INMEM);
-    Result<Statement> rStmt = rDB.flatMap(db ->
-        db.createStatement().flatMap(s -> db.execute(s, SQL_CREATE_TABLE)));
-
     Result<List<Transaction>> listTx = FileReader.read(path)
         .flatMap(this::parseTransactions);
-    assertTrue(listTx.map(this::parseStocks).flatMap(this::checkForNegativeStocks).isSuccess());
+    assertSuccess(listTx.map(this::parseStocks).flatMap(this::checkForNegativeStocks));
 
-    // TODO: create (prepared?) statement to put all transactions into the db
+    // Create prepared statement to put all transactions into the db
+    Result<DataBase> rDB = DataBase.openDataBase(DB_INMEM);
+    rDB = rDB.flatMap(db -> db.execute(List.of(SQL_CREATE_TABLE)));
     Result<PreparedStatement> rPrepStmt = rDB.flatMap(db -> db.prepareStatemet(SQL_INSERT_PREP));
 
     var foo = listTx.flatMap(l ->
         l.foldLeft(rPrepStmt, acc -> e -> acc.flatMap(ps -> insertTxData(ps, e).flatMap(this::executeStatement))));
-    assertTrue(foo.isSuccess());
+    assertSuccess(foo);
 
-    Result<DBResultSet> resSet = rDB.flatMap(db -> rStmt.flatMap(s ->
-            db.executeQuery(s, SQL_QUERY, List.of("date", "symbol", "numShares", "price"))))
-        .map(Tuple::_1);
-    Result<List<Transaction>> resListTx = resSet.flatMap(rs -> rs.flatMapInput(Main::createTx))
-        .map(Tuple::_1);
+    // Check that all transactions were input correctly
+    var resListTx = rDB.flatMap(
+        db -> db.mapQuery(SQL_QUERY, List.of("date", "symbol", "numShares", "price"), Main::createTx)
+            .map(Tuple::_1));
     listTx.forEach(lexp -> resListTx.forEachOrFail(lres ->
             assertEquals(lexp, lres))
         .forEach(Assertions::fail));
+
+    // Close all database resources
+    var f = rPrepStmt.flatMap(ps -> {
+      try {
+        ps.close();
+        return Result.success(ps.isClosed());
+      } catch (SQLException e) {
+        return Result.failure(e);
+      }
+    });
+    assertSuccess(f);
+    assertSuccess(rDB.flatMap(DataBase::close));
   }
 
   Result<PreparedStatement> insertTxData(PreparedStatement ps, Transaction tx) {
@@ -131,21 +151,21 @@ class MainTest {
 
   @Test
   void parseTest() {
-    assertTrue(FileReader.read(pathErrorFile)
-        .flatMap(this::parseTransactions).isFailure());
+    assertFailure(FileReader.read(pathErrorFile)
+        .flatMap(this::parseTransactions));
 
     Result<Map<Symbol, Integer>> rStocks = FileReader.read(pathErrorFile)
         .map(fR -> List.unfold(fR, Main::createTxWithCheck))
         .flatMap(l -> List.flattenResult(l.filter(Result::isSuccess)))
         .map(this::parseStocks)
         .flatMap(this::checkForNegativeStocks);
-    assertTrue(rStocks.isFailure());
+    assertFailure(rStocks);
 
     rStocks = FileReader.read(path)
         .flatMap(this::parseTransactions)
         .map(this::parseStocks)
         .flatMap(this::checkForNegativeStocks);
-    assertTrue(rStocks.isSuccess());
+    assertSuccess(rStocks);
 
     rStocks.forEach(map -> map.get(Symbol.symbol("VXUS"))
         .forEachOrFail(nShares -> assertEquals(334, nShares))
@@ -172,21 +192,17 @@ class MainTest {
     List<Tuple<Symbol, Integer>> negativeStock = stocks.stream().filter(t -> t._2 < 0).toList();
     return negativeStock.isEmpty()
         ? Result.success(stocks)
-        : Result.failure("Input data contains stocks with negative number of shares: " + negativeStock.stream().map(t -> t._1).toList());
+        : Result.failure("Input data contains stocks with negative number of shares: " +
+            negativeStock.stream().map(t -> t._1).toList());
   }
 
   @Test
   void h2TestFPSingleRow() {
     Result<DataBase> rDB = DataBase.openDataBase(DB_INMEM);
-    Result<Statement> rS = rDB.flatMap(db ->
-        db.createStatement()
-            .flatMap(s -> db.execute(s, List.of(SQL_CREATE_TABLE, SQL_INSERT_1))));
-
-    Result<DBResultSet> resSet = rDB.flatMap(db -> rS.flatMap(s ->
-            db.executeQuery(s, SQL_QUERY, List.of("date", "symbol", "numShares", "price"))))
-        .map(t -> t._1);
-    Result<List<Transaction>> listTx = resSet.flatMap(rs -> rs.flatMapInput(Main::createTx)
-        .map(t -> t._1));
+    rDB = rDB.flatMap(db -> db.execute(List.of(SQL_CREATE_TABLE, SQL_INSERT_1)));
+    Result<List<Transaction>> listTx = rDB.flatMap(
+        db -> db.mapQuery(SQL_QUERY, List.of("date", "symbol", "numShares", "price"), Main::createTx)
+            .map(Tuple::_1));
 
     List<Transaction> testTx = List.of(Transaction.transaction(date, symbol, nShares, price));
     listTx.forEachOrFail(tx -> assertEquals(testTx, tx)).forEach(Assertions::fail);
@@ -195,14 +211,12 @@ class MainTest {
   @Test
   void h2TestFPMultipleRows() {
     Result<DataBase> rDB = DataBase.openDataBase(DB_INMEM);
-    Result<Statement> rS = rDB.flatMap(db ->
-        db.createStatement().flatMap(s -> db.execute(s,
-            List.of(SQL_CREATE_TABLE, SQL_INSERT_1, SQL_INSERT_2, SQL_INSERT_3, SQL_INSERT_4))));
-    Result<DBResultSet> resSet = rDB.flatMap(db -> rS.flatMap(s ->
-            db.executeQuery(s, SQL_QUERY, List.of("date", "symbol", "numShares", "price"))))
-        .map(t -> t._1);
-    Result<List<Transaction>> listTx = resSet.flatMap(rs -> rs.flatMapInput(Main::createTx))
-        .map(t -> t._1);
+    rDB = rDB.flatMap(db -> db.execute(
+        List.of(SQL_CREATE_TABLE, SQL_INSERT_1, SQL_INSERT_2, SQL_INSERT_3, SQL_INSERT_4)));
+
+    Result<List<Transaction>> listTx = rDB.flatMap(
+        db -> db.mapQuery(SQL_QUERY, List.of("date", "symbol", "numShares", "price"), Main::createTx)
+            .map(Tuple::_1));
 
     List<Transaction> testTx = List.of(Transaction.transaction(date, symbol, nShares, price),
         Transaction.transaction(LocalDate.parse("2022-10-09"), "AVUV", 100, BigDecimal.valueOf(40.00)),
@@ -268,7 +282,7 @@ class MainTest {
     Result<Transaction> rTx = FileReader.read(pathErrorFile)
         .flatMap(Main::createTxWithCheck)
         .flatMap(Tuple::_1);
-    assertTrue(rTx.isFailure());
+    assertFailure(rTx);
 
     Transaction expTx = Transaction.transaction(date, symbol, nShares, price);
     rTx = FileReader.read(path)
