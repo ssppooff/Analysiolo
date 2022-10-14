@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.Comparator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -118,5 +119,19 @@ class ListTest {
     List<Integer> l = Stream.from(1).take(3).toList();
     List<Integer> exp = List.list(3, 2, 1);
     assertEquals(exp, l.reverse());
+  }
+
+  @Test
+  void testSort() {
+    List<Integer> l1 = List.of(3, 4, 2, 1, 2);
+    List<Integer> l2 = List.of(1, 1, 2, 1, 1);
+    List<Tuple<Integer, Integer>> lT = List.zip(l1, l2);
+
+    List<Integer> exp1 = List.of(1, 2, 2, 3, 4);
+    List<Integer> exp2 = List.of(1, 2, 1, 1, 1);
+    List<Tuple<Integer, Integer>> lTexp = List.zip(exp1, exp2);
+
+    assertEquals(exp1, l1.sortFP(Integer::compareTo));
+    assertEquals(lTexp, lT.sortFP(Comparator.comparing(Tuple::_1)));
   }
 }

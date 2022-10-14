@@ -1,7 +1,9 @@
 package functionalUtilities;
 
 import java.util.AbstractSequentialList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.ListIterator;
 import java.util.function.Function;
 
@@ -52,6 +54,29 @@ public abstract class List<E> extends AbstractSequentialList<E> {
 
   public static <E> List<E> concat(List<E> l1, List<E> l2) {
     return l1.reverse().foldLeft(l2, acc -> acc::prepend);
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  public List<E> sortFP(Comparator<? super E> c) {
+    Object[] a = this.toArray();
+    Arrays.sort(a, (Comparator) c);
+    return List.of((E[]) a);
+  }
+
+  @Override
+  public Object[] toArray() {
+    Object[] result = new Object[size()];
+    int i = 0;
+    for (List<E> currHd = this; !currHd.isEmpty(); currHd = currHd.tail())
+      result[i++] = currHd.head();
+
+    return result;
+  }
+
+  @Override
+  public void sort(Comparator<? super E> c) {
+    throw new IllegalStateException(
+        "Cannot apply void sort() on immutable list, use sortFP()");
   }
 
   @Override
