@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class FileReaderTest {
@@ -18,32 +17,40 @@ class FileReaderTest {
   static int nShares = +10;
   static BigDecimal price = BigDecimal.valueOf(40.11);
 
-  @BeforeAll
-  static void lift() {}
+  @SuppressWarnings("unused")
+  void assertSuccess(Result<?> r) {
+    assertTrue(r.isSuccess(), r.toString());
+  }
+
+  @SuppressWarnings("unused")
+  void assertFailure(Result<?> r) {
+    assertTrue(r.isFailure(), r.toString());
+  }
 
   @Test
   void fileReader() {
-    Result<FileReader> rR = FileReader.read(invalidPath);
-    assertTrue(rR.isFailure());
-    rR = FileReader.read(validPath);
-    assertTrue(rR.isSuccess());
+    Result<FileReader> fR = FileReader.read(invalidPath);
+    assertFailure(fR);
+    fR = FileReader.read(validPath);
+    assertSuccess(fR);
 
-    rR.flatMap(FileReader::nextDate)
+    fR.flatMap(FileReader::nextDate)
         .forEachOrFail(t -> assertEquals(date, t._1))
         .forEach(Assertions::fail);
-    rR.flatMap(FileReader::nextStr)
+    fR.flatMap(FileReader::nextStr)
         .forEachOrFail(t -> assertEquals(txType, t._1))
         .forEach(Assertions::fail);
-    rR.flatMap(FileReader::nextStr)
+    fR.flatMap(FileReader::nextStr)
         .forEachOrFail(t -> assertEquals(symbol, t._1))
         .forEach(Assertions::fail);
-    rR.flatMap(FileReader::nextInt)
+    fR.flatMap(FileReader::nextInt)
         .forEachOrFail(t -> assertEquals(nShares, t._1))
         .forEach(Assertions::fail);
-    rR.flatMap(FileReader::nextBigDecimal)
+    fR.flatMap(FileReader::nextBigDecimal)
         .forEachOrFail(t -> assertEquals(price, t._1))
         .forEach(Assertions::fail);
 
-    assertEquals(Result.empty(), rR.flatMap(FileReader::nextInt));
+    assertEquals(Result.empty(), fR.flatMap(FileReader::nextInt));
+    assertSuccess(fR.flatMap(FileReader::close));
   }
 }

@@ -48,8 +48,8 @@ class DataSourceTest {
 
   @Test
   void parseFPIntoDB() {
-    Result<List<Transaction>> listTx = FileReader.read(path)
-        .flatMap(Parser::parseTransactions);
+    Result<FileReader> fR = FileReader.read(path);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
     assertSuccess(listTx.map(Parser::parseStocks).flatMap(Parser::checkForNegativeStocks));
 
     // Create prepared statement to put all transactions into the db
@@ -70,7 +70,7 @@ class DataSourceTest {
         .forEach(Assertions::fail));
 
     // Close all database resources
-    var f = rPrepStmt.flatMap(ps -> {
+    var res = rPrepStmt.flatMap(ps -> {
       try {
         ps.close();
         return Result.success(ps.isClosed());
@@ -78,8 +78,9 @@ class DataSourceTest {
         return Result.failure(e);
       }
     });
-    assertSuccess(f);
+    assertSuccess(res);
     assertSuccess(rDB.flatMap(DataBase::close));
+    assertSuccess(fR.flatMap(FileReader::close));
   }
 
   @Test
