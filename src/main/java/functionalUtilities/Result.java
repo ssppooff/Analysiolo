@@ -263,10 +263,16 @@ public abstract class Result<T> implements Serializable {
 
     /**
      * Failures are equals only if they are the same object.
+     * However, this doesn't work if the Failure is based on a message, therefore I'm only comparing
+     * toString() outputs.
      */
     @Override
     public boolean equals(Object o) {
-      return this == o;
+//      return this == o;
+      if ( !(o instanceof Result.Failure<?> that) )
+        return false;
+
+      return this.exception.toString().equals(that.exception.toString());
     }
 
     /**
