@@ -16,6 +16,7 @@ public abstract class List<E> extends AbstractSequentialList<E> {
   public abstract List<E> tail();
   @Override
   public abstract boolean isEmpty();
+  public abstract Result<E> last();
 
   private List() {}
 
@@ -37,6 +38,30 @@ public abstract class List<E> extends AbstractSequentialList<E> {
 
   public List<E> filter(Function<E, Boolean> p) {
     return foldRight(List.list(), e -> acc -> p.apply(e) ? acc.prepend(e) : acc);
+  }
+
+  public <T> T foldLeftAbsorbEl(T acc, E zero, Function<T, Function<E, T>> f) {
+    return foldLeftAbsorbEl(acc, zero::equals, f);
+  }
+  public <T> T foldLeftAbsorbEl(T acc, Function<E, Boolean> p, Function<T, Function<E, T>> f) {
+    return foldLeftAbsorbEl_(this, acc, p, f).eval();
+  }
+  private static <E, T> TailCall<T> foldLeftAbsorbEl_(List<E> l, T acc, Function<E, Boolean> p, Function<T, Function<E, T>> f) {
+    return p.apply(l.head()) || l.isEmpty()
+        ? TailCall.ret(acc)
+        : TailCall.suspend(() -> foldLeftAbsorbEl_(l.tail(), f.apply(acc).apply(l.head()), p, f));
+  }
+
+  public <T> T foldLeftAbsorbAcc(T acc, T zero, Function<T, Function<E, T>> f) {
+    return foldLeftAbsorbAccPred(acc, (Function<T, Boolean>) zero::equals, f);
+  }
+  public <T> T foldLeftAbsorbAccPred(T acc, Function<T, Boolean> p, Function<T, Function<E, T>> f) {
+    return foldLeftAbsorbAcc_(this, acc, p, f).eval();
+  }
+  private static <E, T> TailCall<T> foldLeftAbsorbAcc_(List<E> l, T acc, Function<T, Boolean> p, Function<T, Function<E, T>> f) {
+    return p.apply(acc) || l.isEmpty()
+        ? TailCall.ret(acc)
+        : TailCall.suspend(() -> foldLeftAbsorbAcc_(l.tail(), f.apply(acc).apply(l.head()), p, f));
   }
 
   public <T> T foldLeft(T acc, Function<T, Function<E, T>> f) {
@@ -161,8 +186,12 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     public boolean isEmpty() {
       return true;
     }
-  }
 
+    @Override
+    public Result<E> last() {
+      return Result.empty();
+    }
+  }
   private static final class Node<E> extends List<E> {
     private final E head;
     private final List<E> tail;
@@ -185,6 +214,17 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     @Override
     public boolean isEmpty() {
       return false;
+    }
+
+    @Override
+    public Result<E> last() {
+      return last_(this).eval();
+    }
+    private static <E> TailCall<Result<E>> last_(List<E> l) {
+      return l.tail().isEmpty()
+          ? TailCall.ret(Result.success(l.head()))
+          : TailCall.suspend(() -> last_(l.tail()));
+
     }
   }
 

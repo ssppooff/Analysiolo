@@ -134,4 +134,11 @@ class ListTest {
     assertEquals(exp1, l1.sortFP(Integer::compareTo));
     assertEquals(lTexp, lT.sortFP(Comparator.comparing(Tuple::_1)));
   }
+
+  @Test
+  void testLast() {
+    List<Integer> l = List.of(1, 2, 3, 4);
+    assertEquals(Result.success(4), l.last());
+    assertEquals(Result.empty(), List.list().last());
+  }
 }
