@@ -5,6 +5,7 @@ import functionalUtilities.FileReader;
 import functionalUtilities.List;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
+import java.util.Comparator;
 import org.junit.jupiter.api.Test;
 import stockAPI.DataSource;
 import stockAPI.Parser;
@@ -13,6 +14,14 @@ import stockAPI.Transaction;
 /* TODO Current task & subtasks:
     * Check for negative stocks after combining the transactions in the db and the supplied file
     - nShares integer or double or BigDecimal?
+
+ Internal considerations
+ - When combining transactions from the database and command input (directly or from a file):
+   - you must sort the transactions according to date
+   - How do you sort transactions that were done on the same date regarding the same stock?
+
+ Assumptions
+ - Transactions in the db are already correctly sorted
 
  If no date is given/what is the value of the portfolio now?
  - ask Yahoo Finance the prices of the list
@@ -55,13 +64,42 @@ class MainTest {
   String path = "src/test/java/testdata.txt";
 
   @SuppressWarnings("unused")
-  void assertSuccess(Result<?> r) {
+  <T> Result<T> assertSuccess(Result<T> r) {
     assertTrue(r.isSuccess(), r.toString());
+    return r;
   }
 
   @SuppressWarnings("unused")
-  void assertFailure(Result<?> r) {
+  <T> Result<T> assertFailure(Result<T> r) {
     assertTrue(r.isFailure(), r.toString());
+    return r;
+  }
+
+  void listPerLine(List<Transaction> l) {
+    System.out.println(
+        l.foldLeft(new StringBuilder(), s -> tx ->
+            s.append(tx.toString()).append("\n")));
+  }
+
+  Result<List<Transaction>> readTxFromFile(String path) {
+    Result<FileReader> fR = FileReader.read(path);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
+    assertSuccess(fR.flatMap(FileReader::close));
+    return listTx;
+  }
+
+  Result<List<Transaction>> prepDataInDS() {
+    Result<FileReader> fR = FileReader.read(path);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
+    assertSuccess(fR.flatMap(FileReader::close));
+
+    Result<DataSource> rDS = DataSource.openInMemory()
+        .flatMap(ds -> listTx.flatMap(ds::insertTransaction));
+    assertSuccess(rDS);
+
+    Result<Tuple<List<Transaction>, DataSource>> dsRes = rDS.flatMap(DataSource::getTransactions);
+    assertSuccess(dsRes.map(Tuple::_2).flatMap(DataSource::close));
+    return dsRes.map(Tuple::_1);
   }
 
   @Test
@@ -82,7 +120,8 @@ class MainTest {
     // Query & Comparison
     var f = rDS.flatMap(DataSource::getTransactions);
     rDS = f.map(Tuple::_2);
-    Result<List<Transaction>> resListTx = f.map(Tuple::_1);
+    Result<List<Transaction>> resListTx = f.map(Tuple::_1)
+        .map(ltx -> ltx.sortFP(Comparator.comparing(Transaction::getDate)));
     assertEquals(listTx, resListTx);
 
     // Close data source
