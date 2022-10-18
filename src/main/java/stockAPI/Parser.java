@@ -6,6 +6,7 @@ import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Stream;
 import functionalUtilities.Tuple;
+import java.util.function.Function;
 
 public class Parser {
   private Parser() {
@@ -56,5 +57,16 @@ public class Parser {
     return l.foldLeft(Map.empty(), acc -> e -> acc.put(
         e.getSymbol(),
         acc.get(e.getSymbol()).getOrElse(0) + e.getNumShares()));
+  }
+
+  public static Function<Transaction, Result<Map<Symbol, Integer>>> funcCheckForNegativeStock(Result<Map<Symbol, Integer>> acc) {
+    return e -> {
+          Symbol sym = e.getSymbol();
+          Result<Integer> totShares = acc.flatMap((m -> m.get(sym).map(i -> e.getNumShares() + i)));
+          return acc.flatMap(m -> totShares.flatMap(shares -> shares >= 0
+              ? Result.success(m.put(sym, shares))
+              : Result.failure("Negative number of shares for " + sym
+                  + " during or after date " + e.getDate())));
+        };
   }
 }
