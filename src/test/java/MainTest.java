@@ -18,7 +18,6 @@ import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /* TODO Current task & subtasks:
-    * Make sure that after each transactions there is no negative number of shares for each stock
     - When I input further transactions into the db, what is the sorting oder?
     - nShares integer or double or BigDecimal?
 
@@ -72,6 +71,7 @@ import stockAPI.Transaction;
    - ~~Figure out, whether the provided data is sorted in descending or ascending order~~
    - ~~After reading in data, make sure it is sorted correctly -> if note let the user know~~
    - ~~Check for negative stocks after combining the transactions in the db and the supplied file~~
+   - ~~Make sure that after each transactions there is no negative number of shares for each stock~~
  */
 
 class MainTest {
@@ -79,6 +79,7 @@ class MainTest {
   String pathErrorFile = "src/test/java/testdata_error.txt";
   String pathAdditional = "src/test/java/testdata_additional.txt";
   String pathAdditionalError = "src/test/java/testdata_additional_error.txt";
+  String pathAdditionalStocksError = "src/test/java/testdata_additional_stocksError.txt";
 
   @SuppressWarnings("unused")
   <T> Result<T> assertSuccess(Result<T> r) {
@@ -117,6 +118,39 @@ class MainTest {
     Result<Tuple<List<Transaction>, DataSource>> dsRes = rDS.flatMap(DataSource::getTransactions);
     assertSuccess(dsRes.map(Tuple::_2).flatMap(DataSource::close));
     return dsRes.map(Tuple::_1);
+  }
+
+  @Test
+  void checkForNegativeStocks() {
+    // Get transactions from db
+    Result<Map<Symbol, Integer>> stocks = assertSuccess(prepDataInDS().map(Parser::parseStocks));
+
+    // Read input data (simulates text file or directly from CLI) & sort the transactions
+    Result<List<Transaction>> listTx = readTxFromFile(pathAdditional)
+        .map(Main::getOrderSeq)
+        .flatMap(t -> Main.checkCorrectSequence(t._2, t._1))
+        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate).reversed()));
+    assertSuccess(listTx);
+
+    // Check after every transaction if the number of shares for any stock is < 0
+    Result<Map<Symbol, Integer>> res = listTx.flatMap(l -> l.fpStream().foldLeft(stocks, Parser::funcCheckForNegativeStock));
+    assertSuccess(res);
+  }
+
+  @Test
+  void negativeStocksErrorTest() {
+    // Get transactions from datasource & compute what stocks are held
+    Result<Map<Symbol, Integer>> stocks = assertSuccess(prepDataInDS().map(Parser::parseStocks));
+
+    // Read input data (simulates text file or directly from CLI) & sort the transactions
+    Result<List<Transaction>> listTx = readTxFromFile(pathAdditionalStocksError)
+        .map(Main::getOrderSeq)
+        .flatMap(t -> Main.checkCorrectSequence(t._2, t._1))
+        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate).reversed()));
+
+    // Check after every transaction if the number of shares for any stock is < 0
+    Result<Map<Symbol, Integer>> res = listTx.flatMap(l -> l.fpStream().foldLeft(stocks, Parser::funcCheckForNegativeStock));
+    assertFailure(res);
   }
 
   @Test
@@ -195,10 +229,8 @@ class MainTest {
         .flatMap(t -> Main.checkCorrectSequence(t._2, t._1))
         .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate).reversed()));
     assertSuccess(listTx);
-//    System.out.println(listTx);
 
     // Get transactions from db
-//    dbTx.forEach(this::listPerLine);
     Result<List<Transaction>> dsTx = prepDataInDS();
 
     // Check whether last transaction from file is from the same day or more recent than last from db
@@ -212,7 +244,6 @@ class MainTest {
 
     // Comparison
     dsTx = dsTx.flatMap(ldb -> listTx.map(lTx -> List.concat(lTx, ldb)));
-//    dbTx.forEach(this::listPerLine);
     Result<Map<Symbol, Integer>> negStocks = dsTx.map(Parser::parseStocks).flatMap(Parser::checkForNegativeStocks);
     assertSuccess(negStocks);
   }
