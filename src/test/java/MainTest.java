@@ -1,18 +1,27 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import functionalUtilities.FileReader;
 import functionalUtilities.List;
+import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.function.Function;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import stockAPI.DataSource;
 import stockAPI.Parser;
+import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /* TODO Current task & subtasks:
     * Check for negative stocks after combining the transactions in the db and the supplied file
+    ** Make sure that after each transactions there is no negative number of shares for each stock
+    - When I input further transactions into the db, what is the sorting oder?
     - nShares integer or double or BigDecimal?
 
  Internal considerations
@@ -58,10 +67,19 @@ import stockAPI.Transaction;
    - ~~Refactor into Parser.java~~
    - ~~Refactor tests into DataSourceTest.java, ParserTest.java and DataBaseTest.java~~
    - ~~Parse data from file, check whether it is valid, if so, put into db~~
+   - ~~Sort the newly provided transactions, if some were done on the same day, sort them according to
+      the sequence they were provided~~
+   - ~~Check whether the new provided transactions are all later (or on the same day) as the latest from
+    the db~~
+   - ~~Figure out, whether the provided data is sorted in descending or ascending order~~
+   - ~~After reading in data, make sure it is sorted correctly -> if note let the user know~~
  */
 
 class MainTest {
   String path = "src/test/java/testdata.txt";
+  String pathErrorFile = "src/test/java/testdata_error.txt";
+  String pathAdditional = "src/test/java/testdata_additional.txt";
+  String pathAdditionalError = "src/test/java/testdata_additional_error.txt";
 
   @SuppressWarnings("unused")
   <T> Result<T> assertSuccess(Result<T> r) {
@@ -79,6 +97,78 @@ class MainTest {
     System.out.println(
         l.foldLeft(new StringBuilder(), s -> tx ->
             s.append(tx.toString()).append("\n")));
+  }
+
+  // Default: true for ascending and all the same date
+  Tuple<Boolean, List<Transaction>> getOrderSeq(List<Transaction> l) {
+    LocalDate first = l.head().getDate();
+    Boolean res = l.isEmpty() || l.tail().isEmpty()
+        ? true
+        : getNextDate(l).isBefore(first)
+          ? false
+          : true;
+    return new Tuple<>(res, l);
+  }
+
+  LocalDate getNextDate(List<Transaction> l) {
+    LocalDate first = l.head().getDate();
+    Function<LocalDate, Boolean> isNextDate = d -> first.compareTo(d) != 0;
+    return l.tail().foldLeftAbsorbAccPred(first, isNextDate, ignored -> Transaction::getDate);
+  }
+
+  Result<List<Transaction>> checkCorrectSequence(List<Transaction> l, boolean ASC) {
+    Function<Integer, Boolean> invertIfNecessary = ASC
+        ? i -> i >= 0
+        : i -> i <= 0;
+    Result<Tuple<LocalDate, Integer>> res = l.foldLeftAbsorbAccPred(
+        Result.success(new Tuple<>(l.head().getDate(), 0)),
+        Result::isFailure,
+        acc -> e -> acc.flatMap(t -> invertIfNecessary.apply(e.getDate().compareTo(t._1))
+            ? Result.success(new Tuple<>(e.getDate(), t._2 + 1))
+            : Result.<Tuple<LocalDate, Integer>>failure("Wrong date after line " + t._2)
+        ));
+    return res.map(ignored -> l);
+  }
+
+  @Test
+  void getOrderSeqTest() {
+    List<Transaction> lDates = List.of(
+        Transaction.transaction(LocalDate.parse("2022-12-12"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-12-13"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-12-20"), "SP500", 10, BigDecimal.ONE));
+    assertTrue(getOrderSeq(lDates)._1);
+    lDates = List.of(
+        Transaction.transaction(LocalDate.parse("2022-12-20"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-12-13"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-12-12"), "SP500", 10, BigDecimal.ONE));
+    assertFalse(getOrderSeq(lDates)._1);
+  }
+
+  @Test
+  void checkSequenceTest() {
+    List<Transaction> lTx = List.of(
+        Transaction.transaction(LocalDate.parse("2022-09-01"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-10-01"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-11-01"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-12-01"), "SP500", 10, BigDecimal.ONE));
+    List<Transaction> lTxError = List.of(
+        Transaction.transaction(LocalDate.parse("2022-09-01"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-11-01"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-10-01"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-12-01"), "SP500", 10, BigDecimal.ONE));
+    assertSuccess(checkCorrectSequence(lTx, true));
+
+    Result<List<Transaction>> res = assertFailure(checkCorrectSequence(lTxError, true));
+    Result<List<Transaction>> expRes = Result.failure("Wrong date after line 2");
+    assertEquals(expRes, res);
+
+    lTxError = List.of(
+        Transaction.transaction(LocalDate.parse("2022-12-01"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-10-01"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-11-01"), "SP500", 10, BigDecimal.ONE),
+        Transaction.transaction(LocalDate.parse("2022-09-01"), "SP500", 10, BigDecimal.ONE));
+    res = assertFailure(checkCorrectSequence(lTxError, false));
+    assertEquals(expRes, res);
   }
 
   Result<List<Transaction>> readTxFromFile(String path) {
@@ -126,5 +216,63 @@ class MainTest {
 
     // Close data source
     assertSuccess(rDS.flatMap(DataSource::close));
+  }
+
+  @Test
+  void checkCombinedData() {
+    // Read input data (simulates text file or directly from CLI)
+    // sort the transactions
+    Result<List<Transaction>> listTx = readTxFromFile(pathAdditional)
+        .map(this::getOrderSeq)
+        .flatMap(t -> checkCorrectSequence(t._2, t._1))
+        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate).reversed()));
+    assertSuccess(listTx);
+//    System.out.println(listTx);
+
+    // Get transactions from db
+//    dbTx.forEach(this::listPerLine);
+    Result<List<Transaction>> dsTx = prepDataInDS();
+
+    // Check whether last transaction from file is from the same day or more recent than last from db
+    Result<LocalDate> lastDateDb = assertSuccess(dsTx.map(l -> l.head().getDate()));
+    Result<LocalDate> firstDateInput = assertSuccess(listTx.flatMap(List::last).map(Transaction::getDate));
+
+    assertSuccess(lastDateDb.flatMap(dbDate -> firstDateInput.map(inputDate ->
+        dbDate.compareTo(inputDate) <= 0)))
+        .forEachOrFail(Assertions::assertTrue)
+        .forEach(Assertions::fail);
+
+    // Comparison
+    dsTx = dsTx.flatMap(ldb -> listTx.map(lTx -> List.concat(lTx, ldb)));
+//    dbTx.forEach(this::listPerLine);
+    Result<Map<Symbol, Integer>> negStocks = dsTx.map(Parser::parseStocks).flatMap(Parser::checkForNegativeStocks);
+    assertSuccess(negStocks);
+  }
+
+  @Test
+  void checkSequenceError() {
+    // Read input data (simulates text file or directly from CLI)
+    // sort the transactions
+    Result<List<Transaction>> err = readTxFromFile(pathAdditionalError)
+        .map(this::getOrderSeq)
+        .flatMap(t -> checkCorrectSequence(t._2, t._1))
+        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate).reversed()));
+    assertFailure(err);
+  }
+
+  @Test
+  void checkCombinedDataWithError() {
+    // Read input data (simulates text file or directly from CLI)
+    // sort the transactions
+    Result<List<Transaction>> listTx = readTxFromFile(pathAdditionalError)
+        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate)));
+
+    // Get transactions from db
+    Result<List<Transaction>> dsTx = prepDataInDS();
+
+    // Comparison
+    listTx = listTx.flatMap(lTx -> dsTx.map(ldb -> List.concat(ldb, lTx)));
+    Result<Map<Symbol, Integer>> negStocks = listTx.map(Parser::parseStocks).flatMap(Parser::checkForNegativeStocks);
+    assertFailure(negStocks);
   }
 }
