@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import functionalUtilities.FileReader;
-import functionalUtilities.List;
 import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
@@ -56,20 +55,11 @@ class ParserTest {
     assertFailure(rFR.flatMap(Parser::parseTransactions));
     assertSuccess(rFR.flatMap(FileReader::close));
 
-    rFR = FileReader.read(pathErrorFile);
-    Result<Map<Symbol, Integer>> rStocks = rFR
-        .map(fR -> List.unfold(fR, Parser::createTxWithCheck))
-        .flatMap(l -> List.flattenResult(l.filter(Result::isSuccess)))
-        .map(Parser::parseStocks)
-        .flatMap(Parser::checkForNegativeStocks);
-    assertFailure(rStocks);
-    assertSuccess(rFR.flatMap(FileReader::close));
-
     rFR = FileReader.read(path);
-    rStocks =  rFR
+    Result<Map<Symbol, Integer>> rStocks = rFR
         .flatMap(Parser::parseTransactions)
-        .map(Parser::parseStocks)
-        .flatMap(Parser::checkForNegativeStocks);
+        .flatMap(lTx -> lTx.fpStream()
+            .foldLeft(Result.success(Map.empty()), Parser::checkForNegativeStock));
     assertSuccess(rStocks);
     assertSuccess(rFR.flatMap(FileReader::close));
 

@@ -18,6 +18,9 @@ import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /* TODO Current task & subtasks:
+    * Create function to get value of 1 and multiple stocks, now and at specific date
+    - How do I compute time weighted return of portfolio?
+    - Compute average buying price of share per stock
     - When I input further transactions into the db, what is the sorting oder?
     - nShares integer or double or BigDecimal?
 
@@ -33,7 +36,7 @@ import stockAPI.Transaction;
  - ask Yahoo Finance the prices of the list
 
  If the user asks for the value of the portfolio at the end of a certain date
- - figure out what stocks were held at the end of that day
+ - ~~figure out what stocks were held at the end of that day~~
  - ask Yahoo Finance the price for each stock
  - sum up and multiply according to the number of shares for each stock
 
@@ -72,6 +75,7 @@ import stockAPI.Transaction;
    - ~~After reading in data, make sure it is sorted correctly -> if note let the user know~~
    - ~~Check for negative stocks after combining the transactions in the db and the supplied file~~
    - ~~Make sure that after each transactions there is no negative number of shares for each stock~~
+   - ~~after having checked the new transactions, input them into the db~~
  */
 
 class MainTest {
@@ -93,6 +97,7 @@ class MainTest {
     return r;
   }
 
+  @SuppressWarnings("unused")
   void listPerLine(List<Transaction> l) {
     System.out.println(
         l.foldLeft(new StringBuilder(), s -> tx ->
@@ -101,55 +106,58 @@ class MainTest {
 
   Result<List<Transaction>> readTxFromFile(String path) {
     Result<FileReader> fR = FileReader.read(path);
-    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions)
+        .map(Main::getOrderSeq)
+        .flatMap(t -> Main.checkCorrectSequence(t._2, t._1))
+        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate)));
     assertSuccess(fR.flatMap(FileReader::close));
     return listTx;
   }
 
-  Result<List<Transaction>> prepDataInDS() {
+  Result<DataSource> inputDataIntoDS() {
     Result<FileReader> fR = FileReader.read(path);
     Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
     assertSuccess(fR.flatMap(FileReader::close));
 
-    Result<DataSource> rDS = DataSource.openInMemory()
-        .flatMap(ds -> listTx.flatMap(ds::insertTransaction));
-    assertSuccess(rDS);
+    return assertSuccess(DataSource.openInMemory()
+        .flatMap(ds -> listTx.flatMap(ds::insertTransactions)));
+  }
 
-    Result<Tuple<List<Transaction>, DataSource>> dsRes = rDS.flatMap(DataSource::getTransactions);
-    assertSuccess(dsRes.map(Tuple::_2).flatMap(DataSource::close));
-    return dsRes.map(Tuple::_1);
+  Result<Tuple<List<Transaction>, LocalDate>> prepDataInDS() {
+    Result<Tuple<List<Transaction>, Tuple<LocalDate, DataSource>>> dsRes = inputDataIntoDS()
+        .flatMap(DataSource::getTransactions)
+        .flatMap(t1 -> t1._2.getLastDate().map(t2 -> new Tuple<>(t1._1, new Tuple<>(t2._1, t2._2))));
+    assertSuccess(dsRes.map(Tuple::_2).map(Tuple::_2).flatMap(DataSource::close));
+    return dsRes.map(t -> new Tuple<>(t._1, t._2._1));
   }
 
   @Test
   void checkForNegativeStocks() {
     // Get transactions from db
-    Result<Map<Symbol, Integer>> stocks = assertSuccess(prepDataInDS().map(Parser::parseStocks));
+    Result<Map<Symbol, Integer>> stocks = assertSuccess(prepDataInDS()
+        .map(Tuple::_1)
+        .map(Parser::parseStocks));
 
     // Read input data (simulates text file or directly from CLI) & sort the transactions
-    Result<List<Transaction>> listTx = readTxFromFile(pathAdditional)
-        .map(Main::getOrderSeq)
-        .flatMap(t -> Main.checkCorrectSequence(t._2, t._1))
-        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate).reversed()));
+    Result<List<Transaction>> listTx = readTxFromFile(pathAdditional);
     assertSuccess(listTx);
 
     // Check after every transaction if the number of shares for any stock is < 0
-    Result<Map<Symbol, Integer>> res = listTx.flatMap(l -> l.fpStream().foldLeft(stocks, Parser::funcCheckForNegativeStock));
+    Result<Map<Symbol, Integer>> res = listTx.flatMap(l -> l.fpStream().
+        foldLeft(stocks, Parser::checkForNegativeStock));
     assertSuccess(res);
   }
 
   @Test
   void negativeStocksErrorTest() {
     // Get transactions from datasource & compute what stocks are held
-    Result<Map<Symbol, Integer>> stocks = assertSuccess(prepDataInDS().map(Parser::parseStocks));
+    Result<Map<Symbol, Integer>> stocks = assertSuccess(prepDataInDS().map(Tuple::_1).map(Parser::parseStocks));
 
     // Read input data (simulates text file or directly from CLI) & sort the transactions
-    Result<List<Transaction>> listTx = readTxFromFile(pathAdditionalStocksError)
-        .map(Main::getOrderSeq)
-        .flatMap(t -> Main.checkCorrectSequence(t._2, t._1))
-        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate).reversed()));
+    Result<List<Transaction>> listTx = readTxFromFile(pathAdditionalStocksError);
 
     // Check after every transaction if the number of shares for any stock is < 0
-    Result<Map<Symbol, Integer>> res = listTx.flatMap(l -> l.fpStream().foldLeft(stocks, Parser::funcCheckForNegativeStock));
+    Result<Map<Symbol, Integer>> res = listTx.flatMap(l -> l.fpStream().foldLeft(stocks, Parser::checkForNegativeStock));
     assertFailure(res);
   }
 
@@ -196,82 +204,118 @@ class MainTest {
 
   @Test
   void parseIntoDataSource() {
-    // Prep input data
-    Result<FileReader> fR = FileReader.read(path);
-    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
-    assertSuccess(fR.flatMap(FileReader::close));
-    assertSuccess(listTx.map(Parser::parseStocks).flatMap(Parser::checkForNegativeStocks));
+    // Read in input data, make sure no shares are negative after any transaction
+    Result<List<Transaction>> listTx = readTxFromFile(path);
+    assertSuccess(listTx);
+    assertSuccess(listTx.flatMap(l -> l.fpStream()
+        .foldLeft(Result.success(Map.empty()), Parser::checkForNegativeStock)));
 
-    Result<DataSource> rDS = DataSource.openInMemory();
-    assertSuccess(rDS);
+    Result<DataSource> rDS = assertSuccess(DataSource.openInMemory());
 
     // Insert
-    rDS = rDS.flatMap(ds -> listTx.flatMap(ds::insertTransaction));
+    rDS = rDS.flatMap(ds -> listTx.flatMap(ds::insertTransactions));
     assertSuccess(rDS);
 
     // Query & Comparison
     var f = rDS.flatMap(DataSource::getTransactions);
-    rDS = f.map(Tuple::_2);
     Result<List<Transaction>> resListTx = f.map(Tuple::_1)
         .map(ltx -> ltx.sortFP(Comparator.comparing(Transaction::getDate)));
     assertEquals(listTx, resListTx);
 
     // Close data source
-    assertSuccess(rDS.flatMap(DataSource::close));
+    assertSuccess(f.map(Tuple::_2).flatMap(DataSource::close));
   }
 
   @Test
   void checkCombinedData() {
     // Read input data (simulates text file or directly from CLI)
     // sort the transactions
-    Result<List<Transaction>> listTx = readTxFromFile(pathAdditional)
-        .map(Main::getOrderSeq)
-        .flatMap(t -> Main.checkCorrectSequence(t._2, t._1))
-        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate).reversed()));
+    Result<List<Transaction>> listTx = readTxFromFile(pathAdditional);
     assertSuccess(listTx);
 
-    // Get transactions from db
-    Result<List<Transaction>> dsTx = prepDataInDS();
+    // get transactions and last date from db
+    Result<Tuple<List<Transaction>, LocalDate>> dsRes = assertSuccess(prepDataInDS());
+    Result<List<Transaction>> dsTx = dsRes.map(Tuple::_1);
+    Result<LocalDate> lastDateDb = dsRes.map(Tuple::_2);
+    Result<Map<Symbol, Integer>> dbStocks = dsTx.map(Parser::parseStocks);
 
     // Check whether last transaction from file is from the same day or more recent than last from db
-    Result<LocalDate> lastDateDb = assertSuccess(dsTx.map(l -> l.head().getDate()));
-    Result<LocalDate> firstDateInput = assertSuccess(listTx.flatMap(List::last).map(Transaction::getDate));
+    Result<LocalDate> firstDateInput = assertSuccess(listTx.map(l -> l.head().getDate()));
 
     assertSuccess(lastDateDb.flatMap(dbDate -> firstDateInput.map(inputDate ->
         dbDate.compareTo(inputDate) <= 0)))
         .forEachOrFail(Assertions::assertTrue)
         .forEach(Assertions::fail);
 
-    // Comparison
-    dsTx = dsTx.flatMap(ldb -> listTx.map(lTx -> List.concat(lTx, ldb)));
-    Result<Map<Symbol, Integer>> negStocks = dsTx.map(Parser::parseStocks).flatMap(Parser::checkForNegativeStocks);
-    assertSuccess(negStocks);
+    // Check whether there are any negative number of shares after every new transaction
+    Result<Map<Symbol, Integer>> res = listTx.flatMap(l -> l.fpStream()
+        .foldLeft(dbStocks, Parser::checkForNegativeStock));
+    assertSuccess(res);
   }
 
   @Test
   void checkSequenceError() {
     // Read input data (simulates text file or directly from CLI)
     // sort the transactions
-    Result<List<Transaction>> err = readTxFromFile(pathAdditionalError)
-        .map(Main::getOrderSeq)
-        .flatMap(t -> Main.checkCorrectSequence(t._2, t._1))
-        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate).reversed()));
+    Result<List<Transaction>> err = readTxFromFile(pathAdditionalError);
     assertFailure(err);
   }
 
   @Test
   void checkCombinedDataWithError() {
-    // Read input data (simulates text file or directly from CLI)
-    // sort the transactions
-    Result<List<Transaction>> listTx = readTxFromFile(pathAdditionalError)
+    // Read data in manually due to errors
+    Result<FileReader> fR = FileReader.read(pathAdditionalError);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions)
         .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate)));
+    assertSuccess(fR.flatMap(FileReader::close));
+    assertSuccess(listTx);
 
     // Get transactions from db
-    Result<List<Transaction>> dsTx = prepDataInDS();
+    Result<List<Transaction>> dsTx = prepDataInDS().map(Tuple::_1);
+    Result<Map<Symbol, Integer>> dbStocks = dsTx.map(Parser::parseStocks);
 
-    // Comparison
-    listTx = listTx.flatMap(lTx -> dsTx.map(ldb -> List.concat(ldb, lTx)));
-    Result<Map<Symbol, Integer>> negStocks = listTx.map(Parser::parseStocks).flatMap(Parser::checkForNegativeStocks);
+    // Check that there is a point where the number of shares becomes negative
+    Result<Map<Symbol, Integer>> negStocks = listTx.flatMap(lTx -> lTx.fpStream()
+        .foldLeft(dbStocks, Parser::checkForNegativeStock));
     assertFailure(negStocks);
+  }
+
+  @Test
+  void combineDataIntoDS() {
+    // Prep data source & get relevant data out of it
+    Result<Tuple<List<Transaction>, Tuple<LocalDate, DataSource>>> dsRes =
+        inputDataIntoDS()
+        .flatMap(DataSource::getTransactions)
+        .flatMap(t1 -> t1._2.getLastDate().map(t2 -> new Tuple<>(t1._1, new Tuple<>(t2._1, t2._2))));
+
+    Result<List<Transaction>> dsTx = dsRes.map(Tuple::_1);
+    Result<LocalDate> lastDateDb = dsRes.map(t -> t._2._1);
+    Result<DataSource> rDS = dsRes.map(t -> t._2._2);
+    Result<Map<Symbol, Integer>> dbStocks = dsTx.map(Parser::parseStocks);
+
+    // Read input data (simulates text file or directly from CLI)
+    Result<List<Transaction>> listTx = assertSuccess(readTxFromFile(pathAdditional));
+
+    // Check whether last transaction from file is from the same day or more recent than last from db
+    Result<LocalDate> firstDateInput = assertSuccess(listTx.map(l -> l.head().getDate()));
+    assertSuccess(lastDateDb.flatMap(dbDate -> firstDateInput.map(inputDate ->
+        dbDate.compareTo(inputDate) <= 0)))
+        .forEachOrFail(Assertions::assertTrue)
+        .forEach(Assertions::fail);
+
+    // Check whether there are any negative number of shares after every new transaction
+    Result<Map<Symbol, Integer>> resStocks = listTx.flatMap(l -> l.fpStream()
+        .foldLeft(dbStocks, Parser::checkForNegativeStock));
+    assertSuccess(resStocks);
+
+    // Insert new transactions into DS
+    rDS = assertSuccess(rDS.flatMap(ds -> listTx.flatMap(ds::insertTransactions)));
+    Result<List<Transaction>> expList = listTx.flatMap(lTx -> dsTx.map(lds -> List.concat(lds, lTx)));
+    var res = rDS.flatMap(DataSource::getTransactions);
+    assertSuccess(res);
+    expList.forEach(expL -> res.map(Tuple::_1).forEach(l -> assertEquals(expL, l)));
+
+    // Close data source
+    assertSuccess(res.map(Tuple::_2).flatMap(DataSource::close));
   }
 }

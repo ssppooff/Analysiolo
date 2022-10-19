@@ -4,7 +4,6 @@ import functionalUtilities.Input;
 import functionalUtilities.List;
 import functionalUtilities.Map;
 import functionalUtilities.Result;
-import functionalUtilities.Stream;
 import functionalUtilities.Tuple;
 import java.util.function.Function;
 
@@ -41,14 +40,6 @@ public class Parser {
                                     price._2))))));
   }
 
-  public static Result<Map<Symbol, Integer>> checkForNegativeStocks(Map<Symbol, Integer> stocks) {
-    Stream<Tuple<Symbol, Integer>> negativeStock = stocks.stream().filter(t -> t._2 < 0);
-    return negativeStock.isEmpty()
-        ? Result.success(stocks)
-        : Result.failure("Input data contains stocks with negative number of shares: "
-            + negativeStock.map(t -> t._1).toList());
-  }
-
   public static Result<List<Transaction>> parseTransactions(Input input) {
     return List.flattenResult(List.unfold(input, Parser::createTxWithCheck));
   }
@@ -59,14 +50,14 @@ public class Parser {
         acc.get(e.getSymbol()).getOrElse(0) + e.getNumShares()));
   }
 
-  public static Function<Transaction, Result<Map<Symbol, Integer>>> funcCheckForNegativeStock(Result<Map<Symbol, Integer>> acc) {
+  public static Function<Transaction, Result<Map<Symbol, Integer>>> checkForNegativeStock(Result<Map<Symbol, Integer>> acc) {
     return e -> {
-          Symbol sym = e.getSymbol();
-          Result<Integer> totShares = acc.flatMap((m -> m.get(sym).map(i -> e.getNumShares() + i)));
-          return acc.flatMap(m -> totShares.flatMap(shares -> shares >= 0
-              ? Result.success(m.put(sym, shares))
-              : Result.failure("Negative number of shares for " + sym
-                  + " during or after date " + e.getDate())));
-        };
+      Symbol sym = e.getSymbol();
+      int totShares = acc.flatMap(m -> m.get(sym)).getOrElse(0) + e.getNumShares();
+      return acc.flatMap(m -> totShares >= 0
+          ? Result.success(m.put(sym, totShares))
+          : Result.failure("Negative number of shares for " + sym
+              + " during or after date " + e.getDate()));
+    };
   }
 }
