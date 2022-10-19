@@ -37,8 +37,9 @@ class DataSourceTest {
   static final String SQL_INSERT_4 = "INSERT INTO transactions (date, symbol, numShares, price) VALUES ('2022-10-12', 'AVUV', -40, 60.00)";
 
   @SuppressWarnings("unused")
-  void assertSuccess(Result<?> r) {
+  <T> Result<T> assertSuccess(Result<T> r) {
     assertTrue(r.isSuccess(), r.toString());
+    return r;
   }
 
   @SuppressWarnings("unused")
@@ -55,7 +56,6 @@ class DataSourceTest {
   Result<List<Transaction>> readTx(String path) {
     Result<FileReader> fR = FileReader.read(path);
     Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
-    assertSuccess(listTx.map(Parser::parseStocks).flatMap(Parser::checkForNegativeStocks));
     assertSuccess(fR.flatMap(FileReader::close));
     return listTx;
   }
@@ -70,9 +70,8 @@ class DataSourceTest {
         l.foldLeft(rPrepStmt, acc -> e ->
         acc.flatMap(ps -> setTxData(ps, e).flatMap(this::executeStatement))));
 
-    // Close all resources
-    assertSuccess(
-        rPrepStmt.flatMap(ps -> {
+    // Close prepared statement
+    assertSuccess(rPrepStmt.flatMap(ps -> {
           try {
             ps.close();
             return Result.success(ps.isClosed());
@@ -111,7 +110,6 @@ class DataSourceTest {
   void parseFPIntoDB() {
     Result<FileReader> fR = FileReader.read(path);
     Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
-    assertSuccess(listTx.map(Parser::parseStocks).flatMap(Parser::checkForNegativeStocks));
 
     // Check that all transactions were input correctly
     Result<DataBase> rDB = listTx.flatMap(this::readTxIntoDB);
@@ -157,15 +155,24 @@ class DataSourceTest {
   }
 
   @Test
-  void getTransactionsDesc() {
+  void getTransactions() {
     Result<List<Transaction>> listTx = readTx(path);
     Result<DataSource> rDS = DataSource.openInMemory();
-    rDS = rDS.flatMap(ds -> listTx.flatMap(ds::insertTransaction));
+    rDS = rDS.flatMap(ds -> listTx.flatMap(ds::insertTransactions));
     var res = rDS.flatMap(DataSource::getTransactions);
     assertSuccess(res);
     res.map(Tuple::_1).forEach(this::listPerLine);
 
     rDS = res.map(Tuple::_2);
     assertSuccess(rDS.map(DataSource::close));
+  }
+
+  @Test
+  void getLastDate() {
+    Result<DataSource> rDS = DataSource.openInMemory()
+        .flatMap(ds -> readTx(path).flatMap(ds::insertTransactions));
+    Result<LocalDate> res = rDS.flatMap(DataSource::getLastDate).map(Tuple::_1);
+    LocalDate expDate = LocalDate.parse("2022-12-12");
+    assertSuccess(res).forEach(date -> assertEquals(expDate, date));
   }
 }

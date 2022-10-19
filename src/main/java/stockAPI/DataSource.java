@@ -1,5 +1,6 @@
 package stockAPI;
 
+import functionalUtilities.DBResultSet;
 import functionalUtilities.DataBase;
 import functionalUtilities.Input;
 import functionalUtilities.List;
@@ -7,6 +8,7 @@ import functionalUtilities.Result;
 import functionalUtilities.Tuple;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.time.LocalDate;
 
 public class DataSource {
   // Create in-memory database
@@ -17,12 +19,18 @@ public class DataSource {
   // SQL Strings
   private static final String SQL_CREATE_TABLE = "CREATE TABLE IF NOT EXISTS transactions (id IDENTITY PRIMARY KEY, date DATE, symbol VARCHAR, numShares INT, price NUMERIC(20,3))";
   private static final String SQL_INSERT_PREP = "INSERT INTO transactions (date, symbol, numShares, price) VALUES (?, ?, ?, ?)";
-  private static final String SQL_QUERY_DESC = "SELECT date, symbol, numShares, price FROM transactions ORDER BY date DESC";
+  private static final String SQL_QUERY_DESC = "SELECT date, symbol, numShares, price FROM transactions";
+  private static final String SQL_QUERY_LAST_DATE = "SELECT MAX(date) AS date FROM transactions FETCH FIRST 1 ROW ONLY";
 
   private DataSource(DataBase db, PreparedStatement ps) {
     super();
     this.db = db;
     this.insertTransaction = ps;
+  }
+
+  public Result<Tuple<LocalDate, DataSource>> getLastDate() {
+    return db.mapQuery(SQL_QUERY_LAST_DATE, List.of("date"), DBResultSet::nextDate)
+        .map(t -> new Tuple<>(t._1.head(), this));
   }
 
   public Result<Tuple<List<Transaction>, DataSource>> getTransactions() {
@@ -42,11 +50,7 @@ public class DataSource {
                             price._2)))));
   }
 
-  public Result<DataSource> insertTransaction(Transaction tx) {
-    return insertTransaction(List.list(tx));
-  }
-
-  public Result<DataSource> insertTransaction(List<Transaction> lTx) {
+  public Result<DataSource> insertTransactions(List<Transaction> lTx) {
     Result<PreparedStatement> res = lTx.foldLeft(Result.success(insertTransaction), rPS -> tx ->
             rPS.flatMap(ps -> setTxData(ps, tx)
                 .flatMap(DataSource::executeStatement)));
