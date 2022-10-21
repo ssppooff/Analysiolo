@@ -8,6 +8,7 @@ import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Comparator;
 import org.junit.jupiter.api.Assertions;
@@ -19,8 +20,6 @@ import stockAPI.Transaction;
 
 /* TODO Current task & subtasks:
     * Create function to get value of 1 and multiple stocks, now and at specific date
-    - How do I compute time weighted return of portfolio?
-    - Compute average buying price of share per stock
     - When I input further transactions into the db, what is the sorting oder?
     - nShares integer or double or BigDecimal?
 
@@ -76,6 +75,8 @@ import stockAPI.Transaction;
    - ~~Check for negative stocks after combining the transactions in the db and the supplied file~~
    - ~~Make sure that after each transactions there is no negative number of shares for each stock~~
    - ~~after having checked the new transactions, input them into the db~~
+   - ~~Compute weighted average of stock purchase for each stock
+       -> ((nShares * price) for each tx)/totShares in portfolio~~
  */
 
 class MainTest {
@@ -129,6 +130,18 @@ class MainTest {
         .flatMap(t1 -> t1._2.getLastDate().map(t2 -> new Tuple<>(t1._1, new Tuple<>(t2._1, t2._2))));
     assertSuccess(dsRes.map(Tuple::_2).map(Tuple::_2).flatMap(DataSource::close));
     return dsRes.map(t -> new Tuple<>(t._1, t._2._1));
+  }
+
+  @Test
+  void computeWeightedAvgPrice() {
+    Result<Map<Symbol, BigDecimal>> avgPrice = prepDataInDS()
+        .map(Tuple::_1)
+        .map(Main::weightedAvgPrice);
+    Map<Symbol, BigDecimal> expMap = Map.<Symbol, BigDecimal>empty()
+        .put(Symbol.symbol("VXUS"), new BigDecimal("40.000"))
+        .put(Symbol.symbol("AVUV"), new BigDecimal("39.133"))
+        .put(Symbol.symbol("VTI"), new BigDecimal("45.880"));
+    avgPrice.forEach(m -> assertEquals(expMap, m));
   }
 
   @Test

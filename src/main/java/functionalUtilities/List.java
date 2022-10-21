@@ -40,6 +40,14 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     return foldRight(List.list(), e -> acc -> p.apply(e) ? acc.prepend(e) : acc);
   }
 
+  public <K> Map<K, List<E>> groupBy(Function<E, K> f) {
+    return foldRight(Map.empty(), e -> m -> {
+      K key = f.apply(e);
+      return m.put(key,
+          m.get(key).getOrElse(list()).prepend(e));
+    });
+  }
+
   public <T> T foldLeftAbsorbEl(T acc, E zero, Function<T, Function<E, T>> f) {
     return foldLeftAbsorbEl(acc, zero::equals, f);
   }
