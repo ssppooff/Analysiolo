@@ -1,11 +1,15 @@
 import functionalUtilities.FileReader;
 import functionalUtilities.List;
+import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Stream;
 import functionalUtilities.Tuple;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.function.Function;
 import stockAPI.Parser;
+import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 public class Main {
@@ -62,5 +66,17 @@ public class Main {
                 : Result.<Tuple<LocalDate, Integer>>failure("Wrong date after line " + t._2)
             ));
         return res.map(ignored -> l);
+    }
+
+    // Two ways to go about it: do it inside the db, or inside the app logic...
+    // I choose to do it in the app logic
+    public static Map<Symbol, BigDecimal> weightedAvgPrice(List<Transaction> l) {
+        return l.groupBy(Transaction::getSymbol)
+            .mapVal(lTxPerStock ->
+                lTxPerStock.foldLeft(new Tuple<>(BigDecimal.ZERO, 0), t -> tx -> {
+                    BigDecimal acqCost = tx.getPrice().multiply(BigDecimal.valueOf(tx.getNumShares()));
+                    return new Tuple<>(t._1.add(acqCost), t._2 + tx.getNumShares());
+                }))
+            .mapVal(t -> t._1.divide(BigDecimal.valueOf(t._2), RoundingMode.HALF_UP));
     }
 }
