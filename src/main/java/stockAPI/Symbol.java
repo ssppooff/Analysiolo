@@ -1,24 +1,42 @@
 package stockAPI;
 
+import functionalUtilities.Result;
+
 public class Symbol {
-  String name;
+  private final String symbol;
+  private final Result<String> name;
 
-  private Symbol(String name) {
-    this.name = name;
+  private Symbol(String symbol, String name) {
+    this.symbol = symbol;
+    this.name = name.isEmpty()
+        ? Result.empty()
+        : Result.success(name);
   }
 
-  public static Symbol symbol(String name) {
-    return new Symbol(name);
+  public String getSymbolStr() {
+    return symbol;
   }
 
+  public Result<String> getName() {
+    return name;
+  }
+
+
+  public static Symbol symbol(String symbol) {
+    return new Symbol(symbol, "");
+  }
+
+  public static Symbol symbol(String symbol, String name) {
+    return new Symbol(symbol, name);
+  }
   @Override
   public String toString() {
-    return name;
+    return symbol;
   }
 
   @Override
   public int hashCode() {
-    return name.hashCode();
+    return symbol.hashCode();
   }
 
   @Override
@@ -26,6 +44,6 @@ public class Symbol {
     if (! (obj instanceof Symbol that) )
       return false;
 
-    return name.equals(that.name);
+    return symbol.equals(that.symbol);
   }
 }

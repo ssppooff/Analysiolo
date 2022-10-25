@@ -44,7 +44,7 @@ public class Parser {
     return List.flattenResult(List.unfold(input, Parser::createTxWithCheck));
   }
 
-  public static Map<Symbol, Integer> parseStocks(List<Transaction> l) {
+  public static Map<Symbol, Integer> parsePositions(List<Transaction> l) {
     return l.foldLeft(Map.empty(), acc -> e -> acc.put(
         e.getSymbol(),
         acc.get(e.getSymbol()).getOrElse(0) + e.getNumShares()));
