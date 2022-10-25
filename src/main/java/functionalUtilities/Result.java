@@ -9,7 +9,7 @@ import java.util.function.Supplier;
 public abstract class Result<T> implements Serializable {
 
   @SuppressWarnings("rawtypes")
-  private static Result empty = new Empty();
+  private static final Result empty = new Empty();
 
   private Result() {
   }
@@ -379,7 +379,7 @@ public abstract class Result<T> implements Serializable {
 
     @Override
     public boolean equals(Object o) {
-      return (this == o || o instanceof Success)
+      return (o instanceof Success)
           && this.value.equals(((Success<?>) o).value);
     }
 
@@ -468,6 +468,10 @@ public abstract class Result<T> implements Serializable {
 
   public static <A, B, C, D> Function<Result<A>, Function<Result<B>, Function<Result<C>, Result<D>>>> lift3(Function<A, Function<B, Function<C, D>>> f) {
     return a -> b -> c -> a.map(f).flatMap(b::map).flatMap(c::map);
+  }
+
+  public static <A, B, C> Result<C> flatMap2(Result<A> a, Result<B> b, Function<A, Function<B, Result<C>>> f) {
+    return a.flatMap(ax -> b.flatMap(bx -> f.apply(ax).apply(bx)));
   }
 
   public static <A, B, C> Result<C> map2(Result<A> a, Result<B> b, Function<A, Function<B, C>> f) {
