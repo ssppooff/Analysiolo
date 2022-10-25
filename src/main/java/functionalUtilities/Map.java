@@ -17,11 +17,19 @@ public class Map<K, V> {
   }
 
   public static <K, V> Map<K, V> empty() {
-    return new Map<K, V>();
+    return new Map<>();
   }
 
   public boolean containsKey(K key) {
     return m.containsKey(key);
+  }
+
+  public int size() {
+    return m.size();
+  }
+
+  public boolean isEmpty() {
+    return m.isEmpty();
   }
 
   public Result<V> get(K key) {
@@ -31,12 +39,13 @@ public class Map<K, V> {
   }
 
   public static <K, V> Map<K, V> add(Map<K, V> m, K key, V val) {
-    m.m.put(key, val);
-    return m;
+    return m.put(key, val);
   }
 
   public Map<K, V> put(K key, V val) {
-    return add(this, key, val);
+    ConcurrentHashMap<K, V> newMap = new ConcurrentHashMap<>(m);
+    newMap.put(key, val);
+    return new Map<>(newMap);
   }
 
   public java.util.Map<K, V> getView() {
@@ -71,6 +80,34 @@ public class Map<K, V> {
     return this.stream(f).toList();
   }
 
+  public <U, W> Map<U, W> forEach(Function<K, Function<V, Tuple<U, W>>> f) {
+    ConcurrentHashMap<U, W> m2 = new ConcurrentHashMap<>();
+    for (java.util.Map.Entry<K, V> entry : m.entrySet()) {
+      Tuple<U, W> t = f.apply(entry.getKey()).apply(entry.getValue());
+      m2.put(t._1, t._2);
+    }
+    return new Map<>(m2);
+  }
+
+  public <U, W> Map<K, W> zipValWith(Map<K, U> map, Function<K, Function<V, Function<U, W>>> f) {
+    return zipVal(this, map, f);
+  }
+  public <W> Map<K, Tuple<V, W>> zipValWith(Map<K, W> map2) {
+    return zipVal(this, map2, k -> v1 -> v2 -> new Tuple<>(v1, v2));
+  }
+  public static <K, V, U, W> Map<K, W> zipVal(Map<K, V> map1, Map<K, U> map2,
+      Function<K, Function<V, Function<U, W>>> f) {
+    if (map1.size() != map2.size())
+      throw new IllegalStateException("Both maps must be of the same size");
+
+    if (!map1.m.keySet().containsAll(map2.m.keySet())
+      || !map2.m.keySet().containsAll(map1.m.keySet()))
+      throw new IllegalStateException("Both maps must have the same set of keys");
+
+    return map1.forEach(key -> val1 ->
+        new Tuple<>(key,
+            f.apply(key).apply(val1).apply(map2.get(key).getOrThrow())));
+  }
 
   @Override
   public String toString() {
@@ -110,10 +147,10 @@ public class Map<K, V> {
    }
 
    public <U> Map<K, U> map(Function<K, Function<V, U>> f) {
-     Map<K, U> res = empty();
+     ConcurrentHashMap<K, U> m2 = new ConcurrentHashMap<>();
      for (K key : m.keySet())
-       res.put(key, f.apply(key).apply(m.get(key)));
-     return res;
+       m2.put(key, f.apply(key).apply(m.get(key)));
+     return new Map<>(m2);
    }
 
    public static <K, V> Result<Map<K, V>> flattenResultKey(Map<Result<K>, V> map) {
