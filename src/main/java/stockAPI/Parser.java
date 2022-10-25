@@ -5,6 +5,7 @@ import functionalUtilities.List;
 import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
+import java.time.LocalDate;
 import java.util.function.Function;
 
 public class Parser {
@@ -59,5 +60,15 @@ public class Parser {
           : Result.failure("Negative number of shares for " + sym
               + " during or after date " + e.getDate()));
     };
+  }
+
+  public static Result<Map<Symbol, StockPosition>> parseStockPositions(List<Transaction> l, LocalDate historyFrom) {
+    var shares = parsePositions(l);
+    List<String> symbols = shares.toList(t -> ignoreVal -> t.getSymbolStr());
+    return Stock.stocks(symbols).map(mStocks ->
+            mStocks.zipValWith(shares, ignoreSym -> emptyStock -> nShares ->
+                (Result<StockPosition>) emptyStock.fillHistoricalData(historyFrom)
+                    .map(stock -> StockPosition.position(stock, nShares))))
+        .flatMap(Map::flattenResultVal);
   }
 }
