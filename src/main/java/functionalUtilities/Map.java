@@ -6,10 +6,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 public class Map<K, V> {
-  private final ConcurrentHashMap<K, V> m = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<K, V> m;
 
   private Map() {
-    super();
+    this(new ConcurrentHashMap<>());
+  }
+
+  private Map(ConcurrentHashMap<K, V> m) {
+    this.m = m;
   }
 
   public static <K, V> Map<K, V> empty() {
@@ -19,6 +23,7 @@ public class Map<K, V> {
   public boolean containsKey(K key) {
     return m.containsKey(key);
   }
+
   public Result<V> get(K key) {
     return m.containsKey(key)
         ? Result.success(m.get(key))
@@ -39,19 +44,37 @@ public class Map<K, V> {
   }
 
   public Stream<Tuple<K, V>> stream() {
+    return stream(key -> val -> new Tuple<>(key, val));
+  }
+
+  public <U> Stream<U> stream(Function<K, Function<V, U>> f) {
     Function<Tuple<Enumeration<K>, ConcurrentHashMap<K, V>>,
-        Result<Tuple<Tuple<K, V>, Tuple<Enumeration<K>, ConcurrentHashMap<K, V>>>>> foo =
-        t1 -> {
-          if (t1._1.hasMoreElements()) {
-            K key = t1._1.nextElement();
-            return Result.success(new Tuple<>(new Tuple<>(key, m.get(key)), t1));
+        Result<Tuple<U, Tuple<Enumeration<K>, ConcurrentHashMap<K, V>>>>> next =
+        t -> {
+          if (t._1.hasMoreElements()) {
+            K key = t._1.nextElement();
+            return Result.success(new Tuple<>(f.apply(key).apply(m.get(key)), t));
           } else {
             return Result.empty();
           }
         };
 
     Tuple<Enumeration<K>, ConcurrentHashMap<K, V>> init = new Tuple<>(m.keys(), m);
-    return Stream.unfold(init, foo);
+    return Stream.unfold(init, next);
+  }
+
+  public List<Tuple<K, V>> toList() {
+    return this.stream().toList();
+  }
+
+  public <U> List<U> toList(Function<K, Function<V, U>> f) {
+    return this.stream(f).toList();
+  }
+
+
+  @Override
+  public String toString() {
+    return toList(key -> val -> String.format("%s: %s", key.toString(), val.toString())).toString();
   }
 
   @Override
@@ -75,8 +98,15 @@ public class Map<K, V> {
     return this.map(ignoreKey -> f);
   }
 
-  public <U> Map<K, U> mapKey(Function<K, U> f) {
+  public <U> Map<K, U> mapKeyToVal(Function<K, U> f) {
     return this.map(key -> ignoreVal -> f.apply(key));
+  }
+
+  public <U> Map<U, V> mapKey(Function<K, U> f) {
+    ConcurrentHashMap<U, V> m2 = new ConcurrentHashMap<>();
+    for (java.util.Map.Entry<K, V> entry : m.entrySet())
+      m2.put(f.apply(entry.getKey()), entry.getValue());
+    return new Map<>(m2);
    }
 
    public <U> Map<K, U> map(Function<K, Function<V, U>> f) {
@@ -84,5 +114,26 @@ public class Map<K, V> {
      for (K key : m.keySet())
        res.put(key, f.apply(key).apply(m.get(key)));
      return res;
+   }
+
+   public static <K, V> Result<Map<K, V>> flattenResultKey(Map<Result<K>, V> map) {
+     Result<Map<K, V>> resMap = Result.success(Map.empty());
+     for (java.util.Map.Entry<Result<K>, V> entry : map.getView().entrySet())
+       resMap = putResultKey(resMap, entry.getKey(), entry.getValue());
+     return resMap;
+   }
+   private static <K, V> Result<Map<K, V>> putResultKey(Result<Map<K, V>> rMap, Result<K> rKey, V val) {
+     return rKey.flatMap(k -> rMap.map(m -> m.put(k, val)));
+   }
+
+   public static <K, V> Result<Map<K, V>> flattenResultVal(Map<K, Result<V>> map) {
+     Result<Map<K, V>> resMap = Result.success(Map.empty());
+     for (java.util.Map.Entry<K, Result<V>> entry : map.m.entrySet())
+       resMap = putResultVal(resMap, entry.getKey(), entry.getValue());
+     return resMap;
+   }
+   private static <K, V> Result<Map<K, V>> putResultVal(Result<Map<K, V>> map, K key, Result<V> val) {
+     return val.flatMap(v -> map.map(m -> m.put(key, v)));
+
    }
 }

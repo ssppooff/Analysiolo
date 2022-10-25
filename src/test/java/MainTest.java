@@ -15,6 +15,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import stockAPI.DataSource;
 import stockAPI.Parser;
+import stockAPI.Stock;
+import stockAPI.StockPosition;
 import stockAPI.Symbol;
 import stockAPI.Transaction;
 
@@ -144,12 +146,47 @@ class MainTest {
     avgPrice.forEach(m -> assertEquals(expMap, m));
   }
 
+  Result<Map<Stock, Integer>> symbolToStock(Map<Symbol, Integer> shares) {
+    List<String> symbols = shares.toList().map(Tuple::_1).map(Symbol::getSymbolStr);
+    return Stock.stocks(symbols).map(m ->
+            m.toList().foldLeft(Map.empty(), map -> t ->
+                  map.put(t._2, shares.get(t._1).getOrThrow())));
+  }
+
+  @Test
+  void historicalNetValue() {
+    LocalDate askDate = LocalDate.parse("2022-10-12");
+    Result<List<Transaction>> filteredTx = prepDataInDS().map(Tuple::_1)
+        .map(l -> l.filter(tx -> tx.getDate().compareTo(askDate) <= 0));
+    Result<Map<Symbol, Integer>> shares = filteredTx.map(Parser::parsePositions);
+
+    Result<BigDecimal> netValue = shares.flatMap(this::symbolToStock)
+        .map(m -> m.mapKey(stock -> stock.fillHistoricalData(askDate))).flatMap(Map::flattenResultKey)
+        .map(m -> m.toList(stock -> nShares -> StockPosition.position(stock, nShares))
+            .map(pos -> pos.getValueOn(askDate))).flatMap(List::flattenResult)
+        .map(l -> l.foldLeft(BigDecimal.ZERO, totVal -> totVal::add));
+
+    System.out.println(netValue);
+    Result<BigDecimal> expRes = Result.success(new BigDecimal("128443.700427"));
+    assertEquals(expRes, netValue);
+  }
+
+  @Test
+  void currentNetValue() {
+    Result<Map<Symbol, Integer>> shares = prepDataInDS().map(Tuple::_1).map(Parser::parsePositions);
+    Result<BigDecimal> netValue = shares.flatMap(this::symbolToStock)
+        .map(m -> m.toList(stock -> nShares -> StockPosition.position(stock, nShares))
+            .map(StockPosition::getValue)
+            .foldLeft(BigDecimal.ZERO, totVal -> totVal::add));
+    System.out.println(netValue);
+  }
+
   @Test
   void checkForNegativeStocks() {
     // Get transactions from db
     Result<Map<Symbol, Integer>> stocks = assertSuccess(prepDataInDS()
         .map(Tuple::_1)
-        .map(Parser::parseStocks));
+        .map(Parser::parsePositions));
 
     // Read input data (simulates text file or directly from CLI) & sort the transactions
     Result<List<Transaction>> listTx = readTxFromFile(pathAdditional);
@@ -164,7 +201,7 @@ class MainTest {
   @Test
   void negativeStocksErrorTest() {
     // Get transactions from datasource & compute what stocks are held
-    Result<Map<Symbol, Integer>> stocks = assertSuccess(prepDataInDS().map(Tuple::_1).map(Parser::parseStocks));
+    Result<Map<Symbol, Integer>> stocks = assertSuccess(prepDataInDS().map(Tuple::_1).map(Parser::parsePositions));
 
     // Read input data (simulates text file or directly from CLI) & sort the transactions
     Result<List<Transaction>> listTx = readTxFromFile(pathAdditionalStocksError);
@@ -250,7 +287,7 @@ class MainTest {
     Result<Tuple<List<Transaction>, LocalDate>> dsRes = assertSuccess(prepDataInDS());
     Result<List<Transaction>> dsTx = dsRes.map(Tuple::_1);
     Result<LocalDate> lastDateDb = dsRes.map(Tuple::_2);
-    Result<Map<Symbol, Integer>> dbStocks = dsTx.map(Parser::parseStocks);
+    Result<Map<Symbol, Integer>> dbStocks = dsTx.map(Parser::parsePositions);
 
     // Check whether last transaction from file is from the same day or more recent than last from db
     Result<LocalDate> firstDateInput = assertSuccess(listTx.map(l -> l.head().getDate()));
@@ -285,7 +322,7 @@ class MainTest {
 
     // Get transactions from db
     Result<List<Transaction>> dsTx = prepDataInDS().map(Tuple::_1);
-    Result<Map<Symbol, Integer>> dbStocks = dsTx.map(Parser::parseStocks);
+    Result<Map<Symbol, Integer>> dbStocks = dsTx.map(Parser::parsePositions);
 
     // Check that there is a point where the number of shares becomes negative
     Result<Map<Symbol, Integer>> negStocks = listTx.flatMap(lTx -> lTx.fpStream()
@@ -304,7 +341,7 @@ class MainTest {
     Result<List<Transaction>> dsTx = dsRes.map(Tuple::_1);
     Result<LocalDate> lastDateDb = dsRes.map(t -> t._2._1);
     Result<DataSource> rDS = dsRes.map(t -> t._2._2);
-    Result<Map<Symbol, Integer>> dbStocks = dsTx.map(Parser::parseStocks);
+    Result<Map<Symbol, Integer>> dbStocks = dsTx.map(Parser::parsePositions);
 
     // Read input data (simulates text file or directly from CLI)
     Result<List<Transaction>> listTx = assertSuccess(readTxFromFile(pathAdditional));
