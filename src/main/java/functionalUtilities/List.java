@@ -48,6 +48,14 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     });
   }
 
+  public E reduce(E identity, Function<E, Function<E, E>> f) {
+    return foldLeft(identity, acc -> e -> f.apply(acc).apply(e));
+  }
+
+  public E reduce(Function<E, Function<E, E>> f) {
+    return tail().foldLeft(head(), acc -> e -> f.apply(acc).apply(e));
+  }
+
   public <T> T foldLeftAbsorbEl(T acc, E zero, Function<T, Function<E, T>> f) {
     return foldLeftAbsorbEl(acc, zero::equals, f);
   }
