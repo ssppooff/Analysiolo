@@ -91,7 +91,6 @@ class MainTest {
   String pathErrorFile = "src/test/java/testdata_error.txt";
   String pathAdditional = "src/test/java/testdata_additional.txt";
   String pathAdditionalError = "src/test/java/testdata_additional_error.txt";
-  String pathAdditionalStocksError = "src/test/java/testdata_additional_stocksError.txt";
 
   @SuppressWarnings("unused")
   <T> Result<T> assertSuccess(Result<T> r) {
@@ -149,36 +148,6 @@ class MainTest {
         .put(Symbol.symbol("AVUV"), new BigDecimal("38.059"))
         .put(Symbol.symbol("VTI"), new BigDecimal("43.109"));
     avgPrice.forEach(m -> assertEquals(expMap, m));
-  }
-
-  @Test
-  void checkForNegativeStocks() {
-    // Get transactions from db
-    Result<Map<Symbol, Integer>> stocks = assertSuccess(prepDataInDS()
-        .map(Tuple::_1)
-        .map(Parser::parsePositions));
-
-    // Read input data (simulates text file or directly from CLI) & sort the transactions
-    Result<List<Transaction>> listTx = readTxFromFile(pathAdditional);
-    assertSuccess(listTx);
-
-    // Check after every transaction if the number of shares for any stock is < 0
-    Result<Map<Symbol, Integer>> res = listTx.flatMap(l -> l.fpStream().
-        foldLeft(stocks, Parser::checkForNegativeStock));
-    assertSuccess(res);
-  }
-
-  @Test
-  void negativeStocksErrorTest() {
-    // Get transactions from datasource & compute what stocks are held
-    Result<Map<Symbol, Integer>> stocks = assertSuccess(prepDataInDS().map(Tuple::_1).map(Parser::parsePositions));
-
-    // Read input data (simulates text file or directly from CLI) & sort the transactions
-    Result<List<Transaction>> listTx = readTxFromFile(pathAdditionalStocksError);
-
-    // Check after every transaction if the number of shares for any stock is < 0
-    Result<Map<Symbol, Integer>> res = listTx.flatMap(l -> l.fpStream().foldLeft(stocks, Parser::checkForNegativeStock));
-    assertFailure(res);
   }
 
   @Test
