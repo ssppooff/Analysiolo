@@ -172,7 +172,7 @@ class DataSourceTest {
     Result<DataSource> rDS = DataSource.openInMemory()
         .flatMap(ds -> readTx(path).flatMap(ds::insertTransactions));
     Result<LocalDate> res = rDS.flatMap(DataSource::getLastDate).map(Tuple::_1);
-    LocalDate expDate = LocalDate.parse("2022-12-12");
+    LocalDate expDate = LocalDate.parse("2021-12-12");
     assertSuccess(res).forEach(date -> assertEquals(expDate, date));
   }
 }

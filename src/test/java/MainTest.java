@@ -22,6 +22,7 @@ import stockAPI.Transaction;
 
 /* TODO Current task & subtasks:
     * Check all symbols input by the user -> replace Symbol.name without Result<String>
+    * Fix wrong dates in test data 2022 -> 2021
     * MWRR & AIRR?
     - When I input further transactions into the db, what is the sorting oder?
     - nShares integer or double or BigDecimal?
@@ -145,15 +146,16 @@ class MainTest {
         .map(Main::weightedAvgPrice);
     Map<Symbol, BigDecimal> expMap = Map.<Symbol, BigDecimal>empty()
         .put(Symbol.symbol("VXUS"), new BigDecimal("40.000"))
-        .put(Symbol.symbol("AVUV"), new BigDecimal("39.133"))
-        .put(Symbol.symbol("VTI"), new BigDecimal("45.880"));
+        .put(Symbol.symbol("AVUV"), new BigDecimal("38.059"))
+        .put(Symbol.symbol("VTI"), new BigDecimal("43.109"));
     avgPrice.forEach(m -> assertEquals(expMap, m));
   }
 
   @Test
   void TWRRtest() {
-    LocalDate from = LocalDate.parse("2022-03-01");
-    LocalDate to = LocalDate.parse("2022-12-01");
+    LocalDate from = LocalDate.parse("2021-03-01");
+    LocalDate to = LocalDate.parse("2021-12-01");
+
     Result<List<Transaction>> init = prepDataInDS().map(Tuple::_1);
     Result<List<Transaction>> listTx = init.map(l ->
         l.filter(tx -> tx.getDate().compareTo(from) >= 0 && tx.getDate().compareTo(to) < 0));
@@ -163,7 +165,7 @@ class MainTest {
 
     Result<BigDecimal> twrr= Result.flatMap2(initPortfolio, listTx, pf -> lTx -> TWRR(pf, lTx, from, to));
     assertSuccess(twrr);
-    BigDecimal expRes = new BigDecimal("-0.117070320011225656727002840566557713408000000000000000000000000000");
+    BigDecimal expRes = new BigDecimal("0.119108982393583731528110761760249746037725179268929607253799680000");
     assertEquals(Result.success(expRes), twrr);
   }
 
@@ -234,7 +236,7 @@ class MainTest {
         .map(l -> l.foldLeft(BigDecimal.ZERO, totVal -> totVal::add));
 
     System.out.println(netValue);
-    Result<BigDecimal> expRes = Result.success(new BigDecimal("128443.700427"));
+    Result<BigDecimal> expRes = Result.success(new BigDecimal("161549.302703"));
     assertEquals(expRes, netValue);
   }
 
