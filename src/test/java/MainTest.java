@@ -20,6 +20,7 @@ import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /* TODO Current task & subtasks:
+    * Write CLI parser so that it can be used as a cLI tool
     * Check all symbols input by the user -> replace Symbol.name without Result<String>
     * MWRR & AIRR?
     - When I input further transactions into the db, what is the sorting oder?
@@ -38,14 +39,14 @@ import stockAPI.Transaction;
 
  If the user asks for the value of the portfolio at the end of a certain date
  - ~~figure out what stocks were held at the end of that day~~
- - ask Yahoo Finance the price for each stock
- - sum up and multiply according to the number of shares for each stock
+ - ~~ask Yahoo Finance the price for each stock~~
+ - ~~sum up and multiply according to the number of shares for each stock~~
 
  Metrics to print
  - ~~Current Net value~~
  - ~~Net value at a specific date~~
- - Time weighted return, since inception, year, YTD
- - Per Stock: Current price | avg/mean buying price
+ - ~~Time weighted return, since inception, year, YTD~~
+ - ~~Per Stock: Current price | avg/mean buying price~~
 
  * Finished tasks
    - ~~Input all the transactions into db~~
