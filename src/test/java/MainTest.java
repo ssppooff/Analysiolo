@@ -8,7 +8,6 @@ import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Comparator;
 import org.junit.jupiter.api.Assertions;
@@ -22,7 +21,6 @@ import stockAPI.Transaction;
 
 /* TODO Current task & subtasks:
     * Check all symbols input by the user -> replace Symbol.name without Result<String>
-    * Fix wrong dates in test data 2022 -> 2021
     * MWRR & AIRR?
     - When I input further transactions into the db, what is the sorting oder?
     - nShares integer or double or BigDecimal?
@@ -84,6 +82,8 @@ import stockAPI.Transaction;
        -> ((nShares * price) for each tx)/totShares in portfolio~~
    - ~~Create function to get value of 1 and multiple stocks, now and at specific date~~
    - ~~Time-Weighted Rate of Return (TWRR)~~
+   - ~~Fix wrong dates in test data 2022 -> 2021~~
+   - ~~Refactor into Portfolio class~~
  */
 
 class MainTest {
@@ -149,105 +149,6 @@ class MainTest {
         .put(Symbol.symbol("AVUV"), new BigDecimal("38.059"))
         .put(Symbol.symbol("VTI"), new BigDecimal("43.109"));
     avgPrice.forEach(m -> assertEquals(expMap, m));
-  }
-
-  @Test
-  void TWRRtest() {
-    LocalDate from = LocalDate.parse("2021-03-01");
-    LocalDate to = LocalDate.parse("2021-12-01");
-
-    Result<List<Transaction>> init = prepDataInDS().map(Tuple::_1);
-    Result<List<Transaction>> listTx = init.map(l ->
-        l.filter(tx -> tx.getDate().compareTo(from) >= 0 && tx.getDate().compareTo(to) < 0));
-    Result<Map<Symbol, StockPosition>> initPortfolio = init.map(l ->
-            l.filter(tx -> tx.getDate().compareTo(from) < 0))
-        .flatMap(l -> Parser.parseStockPositions(l, from));
-
-    Result<BigDecimal> twrr= Result.flatMap2(initPortfolio, listTx, pf -> lTx -> TWRR(pf, lTx, from, to));
-    assertSuccess(twrr);
-    BigDecimal expRes = new BigDecimal("0.119108982393583731528110761760249746037725179268929607253799680000");
-    assertEquals(Result.success(expRes), twrr);
-  }
-
-  Result<BigDecimal> TWRR(final Map<Symbol, StockPosition> portfolio, List<Transaction> lTx, LocalDate from, LocalDate to) {
-    List<LocalDate> fromDates = lTx.foldLeft(List.list(from), l -> tx -> l.prepend(tx.getDate()))
-        .tail().reverse(); // drop date of last tx (or first before reverse()) as it will be provided when zipping with lTx
-    List<Tuple<LocalDate, Transaction>> periodsAndTxs = fromDates.zip(lTx);
-
-    Result<Tuple<List<BigDecimal>, Map<Symbol, StockPosition>>> init =
-        Result.success(new Tuple<>(List.list(), portfolio));
-    var result = periodsAndTxs.foldLeft(init, acc -> data ->
-        acc.flatMap(accTuple -> rateOfReturn(accTuple._2, data._1, data._2.getDate())
-                .flatMap(periodRoR -> updatePortfolio(accTuple._2, data._2)
-                    .map(newPF -> new Tuple<>(accTuple._1.prepend(periodRoR), newPF)))
-        )
-    );
-
-    Result<List<BigDecimal>> growthFactors =
-        result.flatMap(res ->
-            lTx.last().flatMap(lastTx ->
-                rateOfReturn(res._2, lastTx.getDate(), to).map(ror ->
-                    res._1().prepend(ror).reverse())));
-    return growthFactors.map(l -> l
-            .foldLeft(BigDecimal.ONE, product -> product::multiply)
-            .subtract(BigDecimal.ONE));
-  }
-
-  Result<BigDecimal> rateOfReturn(Map<Symbol, StockPosition> portfolio, LocalDate from, LocalDate to) {
-    Result<BigDecimal> initValue = portfolioValueOn(portfolio, from);
-    Result<BigDecimal> endValue = portfolioValueOn(portfolio, to);
-    return portfolio.toList(ignore -> StockPosition::isEmpty).reduce(b1 -> b2 -> b1 && b2)
-        ? Result.success(BigDecimal.ONE)
-        : Result.map2(initValue, endValue, iVal -> eVal -> eVal.divide(iVal, RoundingMode.HALF_UP));
-  }
-
-  Result<Map<Symbol, StockPosition>> updatePortfolio(Map<Symbol, StockPosition> portfolio, Transaction tx) {
-    Result<StockPosition> updStockPos = portfolio.containsKey(tx.getSymbol())
-        ? portfolio.get(tx.getSymbol()).map(sp -> sp.addShares(tx.getNumShares()))
-        : Stock.stock(tx.getSymbol(), tx.getDate())
-            .map(stock -> StockPosition.position(stock, tx.getNumShares()));
-    return updStockPos.map(sp -> portfolio.put(tx.getSymbol(), sp));
-  }
-
-  Result<BigDecimal> portfolioValueOn(Map<Symbol, StockPosition> portfolio, LocalDate date) {
-    return Map.flattenResultVal(portfolio.mapVal(sp -> sp.getValueOn(date)))
-        .map(m -> m.stream(ignoreKey -> val -> val)
-            .foldLeft(BigDecimal.ZERO, val -> val::add));
-  }
-
-  Result<Map<Stock, Integer>> symbolToStock(Map<Symbol, Integer> shares) {
-    List<String> symbols = shares.toList().map(Tuple::_1).map(Symbol::getSymbolStr);
-    return Stock.stocks(symbols).map(m ->
-            m.toList().foldLeft(Map.empty(), map -> t ->
-                  map.put(t._2, shares.get(t._1).getOrThrow())));
-  }
-
-  @Test
-  void historicalNetValue() {
-    LocalDate askDate = LocalDate.parse("2022-10-12");
-    Result<List<Transaction>> filteredTx = prepDataInDS().map(Tuple::_1)
-        .map(l -> l.filter(tx -> tx.getDate().compareTo(askDate) <= 0));
-    Result<Map<Symbol, Integer>> shares = filteredTx.map(Parser::parsePositions);
-
-    Result<BigDecimal> netValue = shares.flatMap(this::symbolToStock)
-        .map(m -> m.mapKey(stock -> stock.fillHistoricalData(askDate))).flatMap(Map::flattenResultKey)
-        .map(m -> m.toList(stock -> nShares -> StockPosition.position(stock, nShares))
-            .map(pos -> pos.getValueOn(askDate))).flatMap(List::flattenResult)
-        .map(l -> l.foldLeft(BigDecimal.ZERO, totVal -> totVal::add));
-
-    System.out.println(netValue);
-    Result<BigDecimal> expRes = Result.success(new BigDecimal("161549.302703"));
-    assertEquals(expRes, netValue);
-  }
-
-  @Test
-  void currentNetValue() {
-    Result<Map<Symbol, Integer>> shares = prepDataInDS().map(Tuple::_1).map(Parser::parsePositions);
-    Result<BigDecimal> netValue = shares.flatMap(this::symbolToStock)
-        .map(m -> m.toList(stock -> nShares -> StockPosition.position(stock, nShares))
-            .map(StockPosition::getValue)
-            .foldLeft(BigDecimal.ZERO, totVal -> totVal::add));
-    System.out.println(netValue);
   }
 
   @Test
