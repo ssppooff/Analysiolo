@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class FileReaderTest {
   String validPath = "src/test/java/testdata.txt";
   String invalidPath = "src/test/java/testdata2.txt";
-  static LocalDate date = LocalDate.parse("2022-02-18");
+  static LocalDate date = LocalDate.parse("2021-02-18");
   static String txType = "BUY";
   static String symbol = "VTI";
   static int nShares = +10;

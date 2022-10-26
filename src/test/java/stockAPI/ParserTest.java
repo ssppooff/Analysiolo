@@ -17,7 +17,7 @@ class ParserTest {
   String pathErrorFile = "src/test/java/testdata_error.txt";
 
   // Data for test transaction
-  static LocalDate date = LocalDate.parse("2022-02-18");
+  static LocalDate date = LocalDate.parse("2021-02-18");
   static String symbol = "VTI";
   static int nShares = 10;
   static BigDecimal price = new BigDecimal("40.11");
@@ -64,7 +64,7 @@ class ParserTest {
     assertSuccess(rFR.flatMap(FileReader::close));
 
     rStocks.forEach(map -> map.get(Symbol.symbol("VXUS"))
-        .forEachOrFail(nShares -> assertEquals(334, nShares))
+        .forEachOrFail(nShares -> assertEquals(0, nShares))
         .forEach(Assertions::fail));
 
     Transaction expTx = Transaction.transaction(date, symbol, nShares, price);
