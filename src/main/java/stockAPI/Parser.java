@@ -62,6 +62,14 @@ public class Parser {
     };
   }
 
+  public static Result<Map<Symbol, StockPosition>> parseStockPositions(List<Transaction> l) {
+    var shares = parsePositions(l);
+    List<String> symbols = shares.toList(t -> ignoreVal -> t.getSymbolStr());
+    return Stock.stocks(symbols)
+        .map(mStocks -> mStocks.zipValWith(shares,
+            ignoreSym -> stock -> nShares -> StockPosition.position(stock, nShares)));
+  }
+
   public static Result<Map<Symbol, StockPosition>> parseStockPositions(List<Transaction> l, LocalDate historyFrom) {
     var shares = parsePositions(l);
     List<String> symbols = shares.toList(t -> ignoreVal -> t.getSymbolStr());
