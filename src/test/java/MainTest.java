@@ -139,18 +139,6 @@ class MainTest {
   }
 
   @Test
-  void computeWeightedAvgPrice() {
-    Result<Map<Symbol, BigDecimal>> avgPrice = prepDataInDS()
-        .map(Tuple::_1)
-        .map(Main::weightedAvgPrice);
-    Map<Symbol, BigDecimal> expMap = Map.<Symbol, BigDecimal>empty()
-        .put(Symbol.symbol("VXUS"), new BigDecimal("40.000"))
-        .put(Symbol.symbol("AVUV"), new BigDecimal("38.059"))
-        .put(Symbol.symbol("VTI"), new BigDecimal("43.109"));
-    avgPrice.forEach(m -> assertEquals(expMap, m));
-  }
-
-  @Test
   void getOrderSeqTest() {
     List<Transaction> lDates = List.of(
         Transaction.transaction(LocalDate.parse("2022-12-12"), "SP500", 10, BigDecimal.ONE),
