@@ -1,10 +1,10 @@
 package functionalUtilities;
 
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+@SuppressWarnings("unused")
 public class Map<K, V> {
   private final ConcurrentHashMap<K, V> m;
 
@@ -48,12 +48,24 @@ public class Map<K, V> {
     return new Map<>(newMap);
   }
 
-  public java.util.Map<K, V> getView() {
-    return Collections.unmodifiableMap(m);
-  }
-
   public Stream<Tuple<K, V>> stream() {
     return stream(key -> val -> new Tuple<>(key, val));
+  }
+
+  public Stream<K> streamKeys() {
+    return stream(key -> ignoreVal -> key);
+  }
+
+  public <U> Stream<U> streamKeys(Function<K, U> f) {
+    return stream(key -> ignoreVal -> f.apply(key));
+  }
+
+  public Stream<V> streamVals() {
+    return stream(ignoreKey -> val -> val);
+  }
+
+  public <U> Stream<U> streamVals(Function<V, U> f) {
+    return stream(ignoreKey -> val -> f.apply(val));
   }
 
   public <U> Stream<U> stream(Function<K, Function<V, U>> f) {
@@ -155,7 +167,7 @@ public class Map<K, V> {
 
    public static <K, V> Result<Map<K, V>> flattenResultKey(Map<Result<K>, V> map) {
      Result<Map<K, V>> resMap = Result.success(Map.empty());
-     for (java.util.Map.Entry<Result<K>, V> entry : map.getView().entrySet())
+     for (java.util.Map.Entry<Result<K>, V> entry : map.m.entrySet())
        resMap = putResultKey(resMap, entry.getKey(), entry.getValue());
      return resMap;
    }
