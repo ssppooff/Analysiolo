@@ -63,21 +63,8 @@ public class Main {
             Result::isFailure,
             acc -> e -> acc.flatMap(t -> invertIfNecessary.apply(e.getDate().compareTo(t._1))
                 ? Result.success(new Tuple<>(e.getDate(), t._2 + 1))
-                : Result.<Tuple<LocalDate, Integer>>failure("Wrong date after line " + t._2)
+                : Result.failure("Wrong date after line " + t._2)
             ));
         return res.map(ignored -> l);
-    }
-
-    // Two ways to go about it: do it inside the db, or inside the app logic...
-    // I choose to do it in the app logic
-    public static Map<Symbol, BigDecimal> weightedAvgPrice(final List<Transaction> l) {
-        return l.filter(tx -> tx.getNumShares() > 0)
-            .groupBy(Transaction::getSymbol)
-            .mapVal(lTxPerStock -> lTxPerStock
-                .foldLeft(new Tuple<>(BigDecimal.ZERO, 0), t -> tx -> {
-                    BigDecimal cost = tx.getPrice().multiply(BigDecimal.valueOf(tx.getNumShares()));
-                    return new Tuple<>(t._1.add(cost), t._2 + tx.getNumShares());
-                }))
-            .mapVal(t -> t._1.divide(BigDecimal.valueOf(t._2), RoundingMode.HALF_UP));
     }
 }
