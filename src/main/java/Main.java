@@ -1,40 +1,64 @@
-import functionalUtilities.FileReader;
 import functionalUtilities.List;
-import functionalUtilities.Map;
 import functionalUtilities.Result;
-import functionalUtilities.Stream;
 import functionalUtilities.Tuple;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.function.Function;
-import stockAPI.Parser;
-import stockAPI.Symbol;
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import java.util.concurrent.Callable;
+import picocli.CommandLine.Parameters;
 import stockAPI.Transaction;
 
-public class Main {
+/*
+# CLI call options
+* Create a new database and add some transactions
+$ portfolio --new-database db-name(.db) --ingest file-with-transactions
 
+* Add some transactions into the database
+$ portfolio demo.db --ingest file-with-additional-transactions
+
+* Compute the current value of the portfolio
+$ portfolio demo.db
+$ portfolio demo.db value
+
+* Compute the value of the portfolio on a certain date
+$ portfolio demo.db value 2021-12-31
+
+* Compute the TWRR between since inception, 1 year, YTD, between two dates
+$ portfolio demo.db twrr inception
+$ portfolio demo.db twrr one-year
+$ portfolio demo.db twrr ytd
+$ portfolio demo.db twrr 2021-01-01 2021-10-31
+
+* Compute the weighted avg acquisition price for each stock held: currently, at a specific date
+$ portfolio demo.db avgCost
+$ portfolio demo.db avgCost 2021-10-10
+$ portfolio demo.db --filter=TSLA avgCost 2021-10-10
+
+* Filter the used transactions to a specific stock
+$ portfolio demo.db --filter=TSLA
+$ portfolio demo.db --filter=TSLA,AVUV
+
+* Get price of a specific stock: current, specific date
+$ portfolio --get-price TSLA
+$ portfolio --get-price TSLA 2021-10-10
+* */
+@Command(name = "pf-analysis", version = "pf-analysis 0.7", mixinStandardHelpOptions = true,
+description = "Tool for simple analysis of a portfolio based on transactions.")
+public class Main implements Callable<Integer> {
+
+    // params: path to db, what else?
+    @Parameters(index = 0, description = "The database with previously ingested transactions.")
+    private final String dbPath = "";
+    @Override
+    public Integer call() throws Exception {
+        return null;
+    }
+
+    // TODO: business logic goes in here
     public static void main(String[] args) {
-        String path = "src/test/java/testdata.txt";
-        Result<FileReader> fR = FileReader.read(path);
-        var f = fR.map(input -> Stream.unfold(input, Parser::createTx));
-//        Result<Stream<String>> rStr = FileReader.read(path);
-
-//        var f = rStr.map(str ->
-//                str.map(Main::readTransaction))
-//            .map(Stream::toList)
-//            .getOrElse(new ArrayList<>())
-//            ;
-
-//        functionalUtilities.Stream<String> str = functionalUtilities.Stream
-//            .unfold();
-//        Scanner s = new Scanner(System.in);
-//        Tuple<Transaction, Scanner> t = readTransaction(s.nextLine());
-//        t = readTransaction(t._2.nextLine());
-        // CLI args
-        // if no args, show help
-        // if only db.sqlite, show prompt
-        // if db.sqlite & file, parse file and add transactions to db        try {
+        int exitCode = new CommandLine(new Main()).execute(args);
+        System.exit(exitCode);
     }
 
     public static LocalDate getNextDate(List<Transaction> l) {
