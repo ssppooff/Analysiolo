@@ -1,12 +1,16 @@
 import functionalUtilities.List;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
+import java.io.File;
 import java.time.LocalDate;
 import java.util.function.Function;
 import picocli.CommandLine;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import java.util.concurrent.Callable;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
+import picocli.CommandLine.ScopeType;
 import stockAPI.Transaction;
 
 /* TODO:
@@ -38,10 +42,10 @@ $ analysiolo demo.db
 --date closing_price_date (arity 1)
 
 * Subcommands
-- price
-- value
-- avgCost
-- twrr
+- price (date, period)
+- value (date, period)
+- avgCost (period)
+- twrr (period)
 
 * Specifying time periods
 * -> if only one date: taken as from-date with end-date right now
@@ -65,25 +69,72 @@ $ analysiolo price --filter=TSLA --period 2021-10-10 (from_date until now, every
 $ analysiolo price --filter=TSLA --period inception (not supported)
 * */
 
-@Command(name = "analysiolo", version = "analysiolio 0.7", mixinStandardHelpOptions = true,
+@Command(name = "analysiolo", version = "analysiolio 0.1", mixinStandardHelpOptions = true,
 description = "Tool for simple analysis of a stock portfolio based on transactions.")
 public class Analysiolo implements Callable<Integer> {
 
-    // params: path to db, what else?
-    @Parameters(index = 0, description = "The database with previously ingested transactions.")
-    private final String dbPath = "";
+    @ArgGroup(exclusive = true)
+    private DB db;
 
+    static class DB {
+        @Option(names = {"--create-database", "-c"}, description = "create a new database", required = true)
+        String newDBPath;
+
+        @Option(names = {"--database", "-d"}, description = "Path to database", required = true)
+        String dbPath;
+    }
+
+    @Option(names = {"--dry-run", "-n"})
+    private final boolean dryRun = false;
+
+    @Option(names = {"--ingest", "--parse", "--file", "-f"}, description = "path to file with transactions to process")
+    private File fileTransactions;
+
+    @Option(names = "--filter", arity = "1..*")
+    private String[] stockFilter;
+
+    @ArgGroup(exclusive = true)
+    private TimeFilter timeFilter;
+
+    static class TimeFilter {
+        @Option(names = "--period", arity = "1..2")
+        String[] period;
+
+        @Option(names = "--date", arity = "0..1", required = true)
+        LocalDate date;
+    }
+
+    // subcommand
+    @Command(name = "price")
+    void price() {
+        // --filter inception not supported
+    }
+
+    @Command(name = "value")
+    void value() {}
+
+    @Command(name = "avgCost")
+    void avgCost() {
+        // --date not supported
+    }
+
+    @Command(name = "twrr")
+    void TWRR() {
+        // --date not supported
+    }
+
+    // TODO: business logic goes in here
     @Override
     public Integer call() throws Exception {
         return null;
     }
 
-    // TODO: business logic goes in here
     public static void main(String[] args) {
         int exitCode = new CommandLine(new Analysiolo()).execute(args);
         System.exit(exitCode);
     }
 
+    // Helper methods
     public static LocalDate getNextDate(List<Transaction> l) {
         LocalDate first = l.head().getDate();
         Function<LocalDate, Boolean> isNextDate = d -> first.compareTo(d) != 0;
