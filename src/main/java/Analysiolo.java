@@ -85,7 +85,7 @@ public class Analysiolo implements Callable<Integer> {
     }
 
     @Option(names = {"--dry-run", "-n"})
-    private final boolean dryRun = false;
+    private boolean dryRun = false;
 
     @Option(names = {"--ingest", "--parse", "--file", "-f"}, description = "path to file with transactions to process")
     private File fileTransactions;
@@ -108,25 +108,41 @@ public class Analysiolo implements Callable<Integer> {
     @Command(name = "price")
     void price() {
         // --filter inception not supported
+        System.out.println("Subcommand: price");
     }
 
     @Command(name = "value")
-    void value() {}
+    void value() {
+        System.out.println("Subcommand: value");
+    }
 
     @Command(name = "avgCost")
     void avgCost() {
         // --date not supported
+        System.out.println("Subcommand: avgCost");
     }
 
     @Command(name = "twrr")
     void TWRR() {
         // --date not supported
+        System.out.println("Subcommand: twrr");
     }
 
     // TODO: business logic goes in here
     @Override
     public Integer call() throws Exception {
-        return null;
+        System.out.println("No subcommand specified, assuming subcommand value");
+        if (db == null) {
+            System.out.println("No path to database given, exiting");
+            return -1;
+        }
+//        System.out.println("DB" + db);
+//        System.out.println("DB path: " + db.dbPath);
+//        System.out.println("dry run: " + dryRun);
+//        System.out.println("tx file: " + fileTransactions);
+//        System.out.println("stock filter: " + stockFilter);
+//        System.out.println("time filter: " + timeFilter);
+        return 1;
     }
 
     public static void main(String[] args) {
