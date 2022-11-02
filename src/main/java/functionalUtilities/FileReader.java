@@ -1,6 +1,7 @@
 package functionalUtilities;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -48,6 +49,10 @@ public class FileReader implements Input {
   }
 
   public static Result<FileReader> read(String path) {
+    return read(new File(path));
+  }
+
+  public static Result<FileReader> read(File path) {
     try {
       return Result.success(
           new FileReader(new Scanner(new BufferedReader(new java.io.FileReader(path)))));
