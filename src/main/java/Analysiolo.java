@@ -1,21 +1,20 @@
+import functionalUtilities.FileReader;
 import functionalUtilities.List;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.concurrent.Callable;
 import java.util.function.Function;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.h2.jdbc.JdbcParameterMetaData;
 import picocli.CommandLine;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
-import java.util.concurrent.Callable;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
-import picocli.CommandLine.ScopeType;
 import stockAPI.DataSource;
+import stockAPI.Parser;
 import stockAPI.Portfolio;
 import stockAPI.Transaction;
 
@@ -122,23 +121,16 @@ public class Analysiolo implements Callable<Integer> {
     int value() {
         System.out.println("Subcommand: value");
         Result<DataSource> rDS = checkForDB(db);
-        if (rDS.isFailure() || rDS.isEmpty()) {
-            System.out.println("Couldn't open data source: " + rDS);
-            return -10;
-        }
 
-        var f= rDS.flatMap(DataSource::getTransactions);
-        var rTXs = f.map(Tuple::_1)
-            .flatMap(l -> l.isEmpty()
-                          ? Result.empty()
-                          : Result.success(l))
-                    .flatMap(Portfolio::portfolio)
-                    .map(Portfolio::currentValue);
-        Result<Boolean> close = f.map(Tuple::_2).flatMap(DataSource::close);
-        if (close.isFailure() || close.isEmpty() || !close.getOrThrow()) {
-            System.out.println("Couldn't close data source: " + close);
-            return -10;
-        }
+        if (fileTransactions != null)
+            rDS = rDS.flatMap(ds -> ingestTransactions(ds, fileTransactions));
+
+        var rTXs = rDS.flatMap(DataSource::getTransactions)
+            .flatMap(t -> t._2.close()
+                .map(ignore -> t._1)
+                .mapEmptyCollection()
+                .flatMap(Portfolio::portfolio)
+                .map(Portfolio::currentValue));
 
         rTXs.failIfEmpty("No transactions inside database")
             .forEachOrFail(res -> System.out.println("Current value " + res))
@@ -171,6 +163,23 @@ public class Analysiolo implements Callable<Integer> {
     }
 
     // Helper methods
+    private Result<DataSource> ingestTransactions(DataSource ds, File path) {
+        System.out.println("Ingesting transactions from file " + path);
+        return readTxFromFile(path).flatMap(ds::insertTransactions);
+    }
+
+    private Result<List<Transaction>> readTxFromFile(File path) {
+        Result<FileReader> fR = FileReader.read(path);
+        Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions)
+            .flatMap(t -> t._1.isEmpty()
+                          ? Result.empty()
+                          : Result.success(t._1))
+            .map(Analysiolo::getOrderSeq)
+            .flatMap(t -> Analysiolo.checkCorrectSequence(t._2, t._1))
+            .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate)));
+        return fR.flatMap(FileReader::close).flatMap(ignore -> listTx);
+    }
+
     private Result<DataSource> checkForDB(DB db) {
         if (db == null)
             return Result.failure("No path to database given, exiting");

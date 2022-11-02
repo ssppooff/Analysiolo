@@ -10,8 +10,6 @@ import functionalUtilities.Tuple;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import stockAPI.DataSource;
