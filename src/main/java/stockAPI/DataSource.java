@@ -13,6 +13,8 @@ import java.time.LocalDate;
 public class DataSource {
   // Create in-memory database
   private final static String DB_INMEM = "jdbc:h2:mem:";
+  private final static String DB_CONNECT = "jdbc:h2:";
+  private final static String DB_JDBC_EXISTS_FLAG = ";IFEXISTS=TRUE";
   private final DataBase db;
   private final PreparedStatement insertTransaction;
 
@@ -88,6 +90,24 @@ public class DataSource {
           Result<PreparedStatement> rPS = db1.prepareStatement(SQL_INSERT_PREP);
           return rPS.map(ps -> new DataSource(db1, ps));
         });
+  }
+
+  public static Result<DataSource> open(String path) {
+    return DataBase.openDataBase(DB_CONNECT + path)
+                   .flatMap(db1 -> db1.execute(SQL_CREATE_TABLE))
+                   .flatMap(db1 -> {
+                     Result<PreparedStatement> rPS = db1.prepareStatement(SQL_INSERT_PREP);
+                     return rPS.map(ps -> new DataSource(db1, ps));
+                   });
+  }
+
+  public static Result<DataSource> openIfExists(String path) {
+    return DataBase.openDataBase(DB_CONNECT + path + DB_JDBC_EXISTS_FLAG)
+                   .flatMap(db1 -> db1.execute(SQL_CREATE_TABLE))
+                   .flatMap(db1 -> {
+                     Result<PreparedStatement> rPS = db1.prepareStatement(SQL_INSERT_PREP);
+                     return rPS.map(ps -> new DataSource(db1, ps));
+                   });
   }
 
   public Result<Boolean> close() {
