@@ -2,8 +2,12 @@ import functionalUtilities.List;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
 import java.io.File;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.h2.jdbc.JdbcParameterMetaData;
 import picocli.CommandLine;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -11,6 +15,8 @@ import java.util.concurrent.Callable;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ScopeType;
+import stockAPI.DataSource;
+import stockAPI.Portfolio;
 import stockAPI.Transaction;
 
 /* TODO:
@@ -78,10 +84,10 @@ public class Analysiolo implements Callable<Integer> {
 
     static class DB {
         @Option(names = {"--create-database", "-c"}, description = "create a new database", required = true)
-        String newDBPath;
+        File newDBPath;
 
         @Option(names = {"--database", "-d"}, description = "Path to database", required = true)
-        String dbPath;
+        File dbPath;
     }
 
     @Option(names = {"--dry-run", "-n"})
@@ -106,14 +112,38 @@ public class Analysiolo implements Callable<Integer> {
 
     // subcommand
     @Command(name = "price")
-    void price() {
+    int price() {
         // --filter inception not supported
         System.out.println("Subcommand: price");
+        return 1;
     }
 
     @Command(name = "value")
-    void value() {
+    int value() {
         System.out.println("Subcommand: value");
+        Result<DataSource> rDS = checkForDB(db);
+        if (rDS.isFailure() || rDS.isEmpty()) {
+            System.out.println("Couldn't open data source: " + rDS);
+            return -10;
+        }
+
+        var f= rDS.flatMap(DataSource::getTransactions);
+        var rTXs = f.map(Tuple::_1)
+            .flatMap(l -> l.isEmpty()
+                          ? Result.empty()
+                          : Result.success(l))
+                    .flatMap(Portfolio::portfolio)
+                    .map(Portfolio::currentValue);
+        Result<Boolean> close = f.map(Tuple::_2).flatMap(DataSource::close);
+        if (close.isFailure() || close.isEmpty() || !close.getOrThrow()) {
+            System.out.println("Couldn't close data source: " + close);
+            return -10;
+        }
+
+        rTXs.failIfEmpty("No transactions inside database")
+            .forEachOrFail(res -> System.out.println("Current value " + res))
+            .forEach(failure -> System.out.println("Error: " + failure));
+        return 1;
     }
 
     @Command(name = "avgCost")
@@ -130,19 +160,9 @@ public class Analysiolo implements Callable<Integer> {
 
     // TODO: business logic goes in here
     @Override
-    public Integer call() throws Exception {
+    public Integer call() {
         System.out.println("No subcommand specified, assuming subcommand value");
-        if (db == null) {
-            System.out.println("No path to database given, exiting");
-            return -1;
-        }
-//        System.out.println("DB" + db);
-//        System.out.println("DB path: " + db.dbPath);
-//        System.out.println("dry run: " + dryRun);
-//        System.out.println("tx file: " + fileTransactions);
-//        System.out.println("stock filter: " + stockFilter);
-//        System.out.println("time filter: " + timeFilter);
-        return 1;
+        return value();
     }
 
     public static void main(String[] args) {
@@ -151,6 +171,35 @@ public class Analysiolo implements Callable<Integer> {
     }
 
     // Helper methods
+    private Result<DataSource> checkForDB(DB db) {
+        if (db == null)
+            return Result.failure("No path to database given, exiting");
+
+        try {
+            String dbPath = removePossibleExtensions(db.dbPath == null
+                                                     ? db.newDBPath.getCanonicalPath()
+                                                     : db.dbPath.getCanonicalPath());
+            File dbFullPath = new File(dbPath + ".mv.db");
+
+            if (db.newDBPath != null)
+                System.out.println("Creating a new database at: " + dbFullPath.getCanonicalPath());
+            else
+                System.out.println("Using database at: " + dbFullPath);
+
+
+            return db.dbPath == null
+                                     ? !dbFullPath.exists() // creating a new database
+                                       ? DataSource.open(dbPath)
+                                       : Result.failure("Database " + dbFullPath.getCanonicalPath()
+                                                            + " already exists, aborting")
+                                     : dbFullPath.exists() // using a pre-existing database
+                                       ? DataSource.openIfExists(dbPath)
+                                       : Result.failure("Database does not exist, aborting");
+        } catch (IOException e) {
+            return Result.failure(e);
+        }
+    }
+
     public static LocalDate getNextDate(List<Transaction> l) {
         LocalDate first = l.head().getDate();
         Function<LocalDate, Boolean> isNextDate = d -> first.compareTo(d) != 0;
@@ -180,5 +229,16 @@ public class Analysiolo implements Callable<Integer> {
                 : Result.failure("Wrong date after line " + t._2)
             ));
         return res.map(ignored -> l);
+    }
+
+    static String removePossibleExtensions(String path) {
+        Pattern p1 = Pattern.compile(".*\\.mv\\.db$");
+        Pattern p2 = Pattern.compile(".*\\.db$");
+
+        return p1.matcher(path).matches()
+            ? path.substring(0, path.length() - 6)
+            : p2.matcher(path).matches()
+                ? path.substring(0, path.length() - 3)
+                  : path;
     }
 }
