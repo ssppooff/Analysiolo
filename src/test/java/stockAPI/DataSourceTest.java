@@ -55,7 +55,7 @@ class DataSourceTest {
 
   Result<List<Transaction>> readTx(String path) {
     Result<FileReader> fR = FileReader.read(path);
-    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions).map(Tuple::_1);
     assertSuccess(fR.flatMap(FileReader::close));
     return listTx;
   }
@@ -109,7 +109,7 @@ class DataSourceTest {
   @Test
   void parseFPIntoDB() {
     Result<FileReader> fR = FileReader.read(path);
-    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions).map(Tuple::_1);
 
     // Check that all transactions were input correctly
     Result<DataBase> rDB = listTx.flatMap(this::readTxIntoDB);

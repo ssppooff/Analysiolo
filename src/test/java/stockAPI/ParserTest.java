@@ -41,14 +41,14 @@ class ParserTest {
   Result<List<Transaction>> readTxFromFile(String path) {
     Result<FileReader> fR = FileReader.read(path);
     Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions)
-        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate)));
+        .map(l -> l._1.sortFP(Comparator.comparing(Transaction::getDate)));
     assertSuccess(fR.flatMap(FileReader::close));
     return listTx;
   }
 
   Result<DataSource> inputDataIntoDS() {
     Result<FileReader> fR = FileReader.read(path);
-    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions).map(Tuple::_1);
     assertSuccess(fR.flatMap(FileReader::close));
 
     return assertSuccess(DataSource.openInMemory()
@@ -89,7 +89,7 @@ class ParserTest {
     rFR = FileReader.read(path);
     Result<Map<Symbol, Integer>> rStocks = rFR
         .flatMap(Parser::parseTransactions)
-        .flatMap(lTx -> lTx.fpStream()
+        .flatMap(t -> t._1.fpStream()
             .foldLeft(Result.success(Map.empty()), Parser::checkForNegativeStock));
     assertSuccess(rStocks);
     assertSuccess(rFR.flatMap(FileReader::close));

@@ -28,7 +28,7 @@ class TransactionTest {
 
   Result<DataSource> inputDataIntoDS() {
     Result<FileReader> fR = FileReader.read(path);
-    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions).map(Tuple::_1);
     assertSuccess(fR.flatMap(FileReader::close));
 
     return assertSuccess(DataSource.openInMemory()

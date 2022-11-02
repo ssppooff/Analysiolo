@@ -10,12 +10,12 @@ import functionalUtilities.Tuple;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import stockAPI.DataSource;
 import stockAPI.Parser;
-import stockAPI.Stock;
-import stockAPI.StockPosition;
 import stockAPI.Symbol;
 import stockAPI.Transaction;
 
@@ -26,13 +26,38 @@ import stockAPI.Transaction;
     - When I input further transactions into the db, what is the sorting oder?
     - nShares integer or double or BigDecimal?
 
- Internal considerations
- - When combining transactions from the database and command input (directly or from a file):
-   - you must sort the transactions according to date
-   - How do you sort transactions that were done on the same date regarding the same stock?
+# CLI call options
+* Create a new database and add some transactions
+$ portfolio --new-database db-name(.db) --ingest file-with-transactions
 
- Assumptions
- - Transactions in the db are already correctly sorted
+* Add some transactions into the database
+$ portfolio demo.db --ingest file-with-additional-transactions
+
+* Compute the current value of the portfolio
+$ portfolio demo.db
+$ portfolio demo.db value
+
+* Compute the value of the portfolio on a certain date
+$ portfolio demo.db value 2021-12-31
+
+* Compute the TWRR between since inception, 1 year, YTD, between two dates
+$ portfolio demo.db twrr inception
+$ portfolio demo.db twrr one-year
+$ portfolio demo.db twrr ytd
+$ portfolio demo.db twrr 2021-01-01 2021-10-31
+
+* Compute the weighted avg acquisition price for each stock held: currently, at a specific date
+$ portfolio demo.db avgCost
+$ portfolio demo.db avgCost 2021-10-10
+$ portfolio demo.db --filter=TSLA avgCost 2021-10-10
+
+* Filter the used transactions to a specific stock
+$ portfolio demo.db --filter=TSLA
+$ portfolio demo.db --filter=TSLA,AVUV
+
+* Get price of a specific stock: current, specific date
+$ portfolio --get-price TSLA
+$ portfolio --get-price TSLA 2021-10-10
 
  If no date is given/what is the value of the portfolio now?
  - ask Yahoo Finance the prices of the list
@@ -47,6 +72,14 @@ import stockAPI.Transaction;
  - ~~Net value at a specific date~~
  - ~~Time weighted return, since inception, year, YTD~~
  - ~~Per Stock: Current price | avg/mean buying price~~
+
+# Internal considerations
+ - When combining transactions from the database and command input (directly or from a file):
+   - you must sort the transactions according to date
+   - How do you sort transactions that were done on the same date regarding the same stock?
+
+## Assumptions
+ - Transactions in the db are already correctly sorted
 
  * Finished tasks
    - ~~Input all the transactions into db~~
@@ -87,7 +120,7 @@ import stockAPI.Transaction;
    - ~~Refactor into Portfolio class~~
  */
 
-class MainTest {
+class AnalysioloTest {
   String path = "src/test/java/testdata.txt";
   String pathErrorFile = "src/test/java/testdata_error.txt";
   String pathAdditional = "src/test/java/testdata_additional.txt";
@@ -115,8 +148,9 @@ class MainTest {
   Result<List<Transaction>> readTxFromFile(String path) {
     Result<FileReader> fR = FileReader.read(path);
     Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions)
-        .map(Main::getOrderSeq)
-        .flatMap(t -> Main.checkCorrectSequence(t._2, t._1))
+        .map(Tuple::_1)
+        .map(Analysiolo::getOrderSeq)
+        .flatMap(t -> Analysiolo.checkCorrectSequence(t._2, t._1))
         .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate)));
     assertSuccess(fR.flatMap(FileReader::close));
     return listTx;
@@ -124,7 +158,7 @@ class MainTest {
 
   Result<DataSource> inputDataIntoDS() {
     Result<FileReader> fR = FileReader.read(path);
-    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions).map(Tuple::_1);
     assertSuccess(fR.flatMap(FileReader::close));
 
     return assertSuccess(DataSource.openInMemory()
@@ -140,17 +174,46 @@ class MainTest {
   }
 
   @Test
+  void fileNameVerifier() {
+    assertEquals("", Analysiolo.removePossibleExtensions(""));
+
+    String path = "absolute/path/to/testdb";
+    String expPath = "absolute/path/to/testdb";
+    assertEquals(path, Analysiolo.removePossibleExtensions(path));
+
+    path = "absolute/path/to/testdb.db";
+    expPath = "absolute/path/to/testdb";
+    assertEquals(expPath, Analysiolo.removePossibleExtensions(path));
+
+    path = "absolute/path/to/testdb.mv.db";
+    expPath = "absolute/path/to/testdb";
+    assertEquals(expPath, Analysiolo.removePossibleExtensions(path));
+
+    path = "absolute/path.db/to/testdb.mv.db";
+    expPath = "absolute/path.db/to/testdb";
+    assertEquals(expPath, Analysiolo.removePossibleExtensions(path));
+
+    path = "absolute/path.db/to/testdb";
+    expPath = "absolute/path.db/to/testdb";
+    assertEquals(expPath, Analysiolo.removePossibleExtensions(path));
+
+    path = "absolute with spaces/path.db/to/testdb.db";
+    expPath = "absolute with spaces/path.db/to/testdb";
+    assertEquals(expPath, Analysiolo.removePossibleExtensions(path));
+  }
+
+  @Test
   void getOrderSeqTest() {
     List<Transaction> lDates = List.of(
         Transaction.transaction(LocalDate.parse("2022-12-12"), "SP500", 10, BigDecimal.ONE),
         Transaction.transaction(LocalDate.parse("2022-12-13"), "SP500", 10, BigDecimal.ONE),
         Transaction.transaction(LocalDate.parse("2022-12-20"), "SP500", 10, BigDecimal.ONE));
-    assertTrue(Main.getOrderSeq(lDates)._1);
+    assertTrue(Analysiolo.getOrderSeq(lDates)._1);
     lDates = List.of(
         Transaction.transaction(LocalDate.parse("2022-12-20"), "SP500", 10, BigDecimal.ONE),
         Transaction.transaction(LocalDate.parse("2022-12-13"), "SP500", 10, BigDecimal.ONE),
         Transaction.transaction(LocalDate.parse("2022-12-12"), "SP500", 10, BigDecimal.ONE));
-    assertFalse(Main.getOrderSeq(lDates)._1);
+    assertFalse(Analysiolo.getOrderSeq(lDates)._1);
   }
 
   @Test
@@ -165,9 +228,9 @@ class MainTest {
         Transaction.transaction(LocalDate.parse("2022-11-01"), "SP500", 10, BigDecimal.ONE),
         Transaction.transaction(LocalDate.parse("2022-10-01"), "SP500", 10, BigDecimal.ONE),
         Transaction.transaction(LocalDate.parse("2022-12-01"), "SP500", 10, BigDecimal.ONE));
-    assertSuccess(Main.checkCorrectSequence(lTx, true));
+    assertSuccess(Analysiolo.checkCorrectSequence(lTx, true));
 
-    Result<List<Transaction>> res = assertFailure(Main.checkCorrectSequence(lTxError, true));
+    Result<List<Transaction>> res = assertFailure(Analysiolo.checkCorrectSequence(lTxError, true));
     Result<List<Transaction>> expRes = Result.failure("Wrong date after line 2");
     assertEquals(expRes, res);
 
@@ -176,7 +239,7 @@ class MainTest {
         Transaction.transaction(LocalDate.parse("2022-10-01"), "SP500", 10, BigDecimal.ONE),
         Transaction.transaction(LocalDate.parse("2022-11-01"), "SP500", 10, BigDecimal.ONE),
         Transaction.transaction(LocalDate.parse("2022-09-01"), "SP500", 10, BigDecimal.ONE));
-    res = assertFailure(Main.checkCorrectSequence(lTxError, false));
+    res = assertFailure(Analysiolo.checkCorrectSequence(lTxError, false));
     assertEquals(expRes, res);
   }
 
@@ -244,7 +307,7 @@ class MainTest {
     // Read data in manually due to errors
     Result<FileReader> fR = FileReader.read(pathAdditionalError);
     Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions)
-        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate)));
+        .map(t -> t._1.sortFP(Comparator.comparing(Transaction::getDate)));
     assertSuccess(fR.flatMap(FileReader::close));
     assertSuccess(listTx);
 
