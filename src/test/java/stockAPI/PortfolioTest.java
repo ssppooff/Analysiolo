@@ -12,11 +12,6 @@ import org.junit.jupiter.api.Test;
 
 class PortfolioTest {
   String path = "src/test/java/testdata.txt";
-  String pathErrorFile = "src/test/java/testdata_error.txt";
-  String pathAdditional = "src/test/java/testdata_additional.txt";
-  String pathAdditionalError = "src/test/java/testdata_additional_error.txt";
-  String pathAdditionalStocksError = "src/test/java/testdata_additional_stocksError.txt";
-
   @SuppressWarnings("unused")
   <T> Result<T> assertSuccess(Result<T> r) {
     assertTrue(r.isSuccess(), r.toString());
@@ -36,19 +31,9 @@ class PortfolioTest {
             s.append(tx.toString()).append("\n")));
   }
 
-//  Result<List<Transaction>> readTxFromFile(String path) {
-//    Result<FileReader> fR = FileReader.read(path);
-//    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions)
-//        .map(Main::getOrderSeq)
-//        .flatMap(t -> Main.checkCorrectSequence(t._2, t._1))
-//        .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate)));
-//    assertSuccess(fR.flatMap(FileReader::close));
-//    return listTx;
-//  }
-
   Result<DataSource> inputDataIntoDS() {
     Result<FileReader> fR = FileReader.read(path);
-    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions);
+    Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions).map(Tuple::_1);
     assertSuccess(fR.flatMap(FileReader::close));
 
     return assertSuccess(DataSource.openInMemory()

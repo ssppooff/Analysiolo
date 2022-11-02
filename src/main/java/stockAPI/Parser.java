@@ -41,8 +41,9 @@ public class Parser {
                                     price._2))))));
   }
 
-  public static Result<List<Transaction>> parseTransactions(Input input) {
-    return List.flattenResult(List.unfold(input, Parser::createTxWithCheck));
+  public static Result<Tuple<List<Transaction>, Input>> parseTransactions(Input input) {
+    return List.flattenResult(List.unfold(input, Parser::createTxWithCheck))
+        .map(l -> new Tuple<>(l, input));
   }
 
   public static Map<Symbol, Integer> parsePositions(List<Transaction> l) {
