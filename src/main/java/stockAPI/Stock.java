@@ -154,6 +154,9 @@ public class Stock {
   }
 
   private static Result<Map<Symbol, yahoofinance.Stock>> getStock(String[] symbols) {
+    if (symbols.length == 0)
+      return Result.empty();
+
     try {
       // includes only the stocks that could successfully be retrieved from Yahoo Finance
       java.util.Map<String, yahoofinance.Stock> yfStocks = YahooFinance.get(symbols);
