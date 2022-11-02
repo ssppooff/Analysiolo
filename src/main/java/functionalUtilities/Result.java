@@ -1,6 +1,7 @@
 package functionalUtilities;
 
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -23,6 +24,7 @@ public abstract class Result<T> implements Serializable {
   public abstract Result<T> mapFailure(String s);
   public abstract Result<T> mapFailure(String s, Exception e);
   public abstract Result<T> mapFailure(Exception e);
+  public abstract Result<T> mapEmptyCollection();
   public abstract Result<T> failIfEmpty(String message);
   public abstract void forEach(Effect<T> ef);
   public abstract void forEachOrThrow(Effect<T> ef);
@@ -93,6 +95,11 @@ public abstract class Result<T> implements Serializable {
 
     @Override
     public Result<T> mapFailure(Exception e) {
+      return this;
+    }
+
+    @Override
+    public Result<T> mapEmptyCollection() {
       return this;
     }
 
@@ -333,6 +340,15 @@ public abstract class Result<T> implements Serializable {
     @Override
     public Result<T> mapFailure(Exception e) {
       return this;
+    }
+
+    @Override
+    public Result<T> mapEmptyCollection() {
+      return !(value instanceof Collection<?> c)
+             ? Result.failure(value.getClass() + " cannot be cast to Collection<?>")
+             : c.isEmpty()
+               ? empty()
+               : this;
     }
 
     @Override
