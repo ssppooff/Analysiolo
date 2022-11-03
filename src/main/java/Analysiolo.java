@@ -5,6 +5,7 @@ import functionalUtilities.Tuple;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
@@ -16,6 +17,7 @@ import picocli.CommandLine.Option;
 import stockAPI.DataSource;
 import stockAPI.Parser;
 import stockAPI.Portfolio;
+import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /* TODO:
@@ -48,7 +50,8 @@ $ analysiolo demo.db
 
 * Subcommands
 - price (date, period)
-- value (date, period)
+- value (date, period): no date given -> current value, date -> value on date, period -> consider
+ transactions inside period and value at end of period
 - avgCost (period)
 - twrr (period)
 
@@ -74,11 +77,14 @@ $ analysiolo price --filter=TSLA --period 2021-10-10 (from_date until now, every
 $ analysiolo price --filter=TSLA --period inception (not supported)
 * */
 
+@SuppressWarnings("unused")
 @Command(name = "analysiolo", version = "analysiolio 0.1", mixinStandardHelpOptions = true,
 description = "Tool for simple analysis of a stock portfolio based on transactions.")
 public class Analysiolo implements Callable<Integer> {
 
-    @ArgGroup(exclusive = true)
+    public Analysiolo() {}
+
+    @ArgGroup()
     private DB db;
 
     static class DB {
@@ -89,23 +95,24 @@ public class Analysiolo implements Callable<Integer> {
         File dbPath;
     }
 
+    @SuppressWarnings("FieldMayBeFinal")
     @Option(names = {"--dry-run", "-n"})
     private boolean dryRun = false;
 
     @Option(names = {"--ingest", "--parse", "--file", "-f"}, description = "path to file with transactions to process")
     private File fileTransactions;
 
-    @Option(names = "--filter", arity = "1..*")
+    @Option(names = "--filter", split = ",", arity = "1..*")
     private String[] stockFilter;
 
-    @ArgGroup(exclusive = true)
+    @ArgGroup()
     private TimeFilter timeFilter;
 
     static class TimeFilter {
-        @Option(names = "--period", arity = "1..2")
-        String[] period;
+        @Option(names = "--period", arity = "1..2", required = true)
+        java.util.List<String> period;
 
-        @Option(names = "--date", arity = "0..1", required = true)
+        @Option(names = "--date", arity = "1", required = true)
         LocalDate date;
     }
 
@@ -125,15 +132,35 @@ public class Analysiolo implements Callable<Integer> {
         if (fileTransactions != null)
             rDS = rDS.flatMap(ds -> ingestTransactions(ds, fileTransactions));
 
+        if (timeFilter != null) {
+            System.out.print("Only considering transactions between/on date: ");
+            if (timeFilter.date != null)
+                System.out.println(prettyPrintList(List.of(timeFilter.date)));
+            else
+                System.out.println(prettyPrintList(timeFilter.period));
+        }
+
+        List<Symbol> symFilter = stockFilter == null
+                                 ? List.list()
+                                 : List.of(stockFilter).map(Symbol::symbol);
+        if (!symFilter.isEmpty())
+            System.out.println(
+                "Only considering transactions from the following stocks: "
+                    + prettyPrintList(symFilter));
+
         var rTXs = rDS.flatMap(DataSource::getTransactions)
             .flatMap(t -> t._2.close()
                 .map(ignore -> t._1)
+//                .map(l -> {System.out.println(l); return l;})
+                .map(l -> l.filter(tx -> symFilter.contains(tx.getSymbol())))
+                .map(l -> l.filter(timePeriodComparator(timeFilter)))
+//                .map(l -> {System.out.println(l); return l;})
                 .mapEmptyCollection()
                 .flatMap(Portfolio::portfolio)
                 .map(Portfolio::currentValue));
 
-        rTXs.failIfEmpty("No transactions inside database")
-            .forEachOrFail(res -> System.out.println("Current value " + res))
+        rTXs.failIfEmpty("No transactions provided")
+            .forEachOrFail(res -> System.out.println("Portfolio valued on " + computeDate(timeFilter) + " at " + res))
             .forEach(failure -> System.out.println("Error: " + failure));
         return 1;
     }
@@ -163,6 +190,59 @@ public class Analysiolo implements Callable<Integer> {
     }
 
     // Helper methods
+    protected static Function<Transaction, Boolean> timePeriodComparator(final TimeFilter filter) {
+        if (filter == null)
+            return tx -> true;
+        if (filter.date != null)
+            return tx -> tx.getDate().compareTo(filter.date) == 0;
+        else {
+            List<String> period = List.of(filter.period);
+            if (period.size() == 1) {
+                return switch (period.head()) {
+                    case "now" -> tx -> tx.getDate().equals(LocalDate.now());
+                    case "inception" -> tx -> true;
+                    default -> tx -> tx.getDate().compareTo(LocalDate.parse(period.head())) >= 0;
+                };
+            } else { // period.size() == 2
+                List<LocalDate> dates = period.map(Analysiolo::parsePeriod);
+                return tx -> tx.getDate().compareTo(dates.head()) >= 0
+                    && tx.getDate().compareTo(dates.tail().head()) <= 0;
+            }
+        }
+    }
+
+    private static LocalDate parsePeriod(String s) {
+        return switch (s) {
+            case "now" -> LocalDate.now();
+            case "inception" -> LocalDate.parse("1000-01-01");
+            default -> LocalDate.parse(s);
+        };
+    }
+
+    protected static String computeDate(final TimeFilter filter) {
+        if (filter == null)
+            return LocalDate.now().toString();
+        if (filter.date != null)
+            return filter.date.toString();
+        else {
+            String lastElement = filter.period.get(filter.period.size() - 1);
+            return lastElement.equals("inception")
+                   ? LocalDate.now().toString()
+                   : parsePeriod(lastElement).toString();
+        }
+    }
+
+    private <E> String prettyPrintList(java.util.List<E> l) {
+        StringBuilder s = new StringBuilder();
+        for (E e : l)
+            s.append(e).append(", ");
+
+        return l.isEmpty()
+               ? ""
+               : s.substring(0, s.length() - 2);
+
+    }
+
     private Result<DataSource> ingestTransactions(DataSource ds, File path) {
         System.out.println("Ingesting transactions from file " + path);
         return readTxFromFile(path).flatMap(ds::insertTransactions);
