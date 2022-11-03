@@ -10,6 +10,7 @@ import functionalUtilities.Tuple;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.function.Function;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import stockAPI.DataSource;
@@ -356,5 +357,87 @@ class AnalysioloTest {
 
     // Close data source
     assertSuccess(res.map(Tuple::_2).flatMap(DataSource::close));
+  }
+
+  @Test
+  void periodTimeFilterTest() {
+//  possibilities:
+//  -d demo.db (equiv)
+//  -d demo.db --period inception (equiv)
+//  -d demo.db --period inception now (equiv)
+//  -d demo.db --period now (only txs from today)
+//  -d demo.db --period 2021-10-10 (from-date until now)
+//  -d demo.db --period 2021-10-10 now (equiv to ^)
+//  -d demo.db --period inception 2021-10-10 (from- to end-date)
+
+    Analysiolo.TimeFilter tf = new Analysiolo.TimeFilter();
+    tf.date = null;
+    tf.period = List.of("now");
+    Function<LocalDate, Boolean> comp = date -> Analysiolo.timePeriodComparator(tf)
+            .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
+    assertFalse(comp.apply(LocalDate.parse("2020-01-01")));
+    assertTrue(comp.apply(LocalDate.now()));
+
+    tf.period = List.of("inception");
+    comp = date -> Analysiolo.timePeriodComparator(tf)
+            .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
+    assertTrue(comp.apply(LocalDate.parse("1000-01-01")));
+    assertTrue(comp.apply(LocalDate.now()));
+
+    tf.period = List.of("inception", "now");
+    comp = date -> Analysiolo.timePeriodComparator(tf)
+        .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
+    assertTrue(comp.apply(LocalDate.parse("1000-01-01")));
+    assertTrue(comp.apply(LocalDate.now()));
+
+    tf.period = List.of("now", "inception");
+    comp = date -> Analysiolo.timePeriodComparator(tf)
+        .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
+    assertFalse(comp.apply(LocalDate.parse("1000-01-02")));
+    assertFalse(comp.apply(LocalDate.now()));
+
+    tf.period = List.of("2021-10-10");
+    comp = date -> Analysiolo.timePeriodComparator(tf)
+        .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
+    assertTrue(comp.apply(LocalDate.parse("2021-10-11")));
+    assertTrue(comp.apply(LocalDate.now()));
+
+    tf.period = List.of("2021-10-10", "now");
+    comp = date -> Analysiolo.timePeriodComparator(tf)
+        .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
+    assertTrue(comp.apply(LocalDate.parse("2021-10-11")));
+    assertTrue(comp.apply(LocalDate.now()));
+
+    tf.period = List.of("inception", "2021-10-10");
+    comp = date -> Analysiolo.timePeriodComparator(tf)
+        .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
+    assertFalse(comp.apply(LocalDate.parse("2021-10-11")));
+    assertTrue(comp.apply(LocalDate.parse("2021-10-10")));
+  }
+
+  @Test
+  void computeDateTest() {
+    Analysiolo.TimeFilter tf = new Analysiolo.TimeFilter();
+    tf.date = LocalDate.parse("2021-10-11");
+    String expStr = "2021-10-11";
+    assertEquals(expStr, Analysiolo.computeDate(tf));
+
+    tf.date = null;
+    tf.period = List.of("now");
+    expStr = LocalDate.now().toString();
+    assertEquals(expStr, Analysiolo.computeDate(tf));
+
+    tf.period = List.of("inception", "now");
+    expStr = LocalDate.now().toString();
+    assertEquals(expStr, Analysiolo.computeDate(tf));
+
+    tf.period = List.of("inception", "2021-10-11");
+    expStr = "2021-10-11";
+    assertEquals(expStr, Analysiolo.computeDate(tf));
+
+    tf.period = List.of("2021-10-11");
+    expStr = "2021-10-11";
+    assertEquals(expStr, Analysiolo.computeDate(tf));
+
   }
 }
