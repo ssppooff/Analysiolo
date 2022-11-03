@@ -5,7 +5,6 @@ import functionalUtilities.Tuple;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
@@ -13,7 +12,10 @@ import java.util.regex.Pattern;
 import picocli.CommandLine;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.HelpCommand;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.ScopeType;
 import stockAPI.DataSource;
 import stockAPI.Parser;
 import stockAPI.Portfolio;
@@ -79,65 +81,78 @@ $ analysiolo price --filter=TSLA --period inception (not supported)
 
 @SuppressWarnings("unused")
 @Command(name = "analysiolo", version = "analysiolio 0.1", mixinStandardHelpOptions = true,
-description = "Tool for simple analysis of a stock portfolio based on transactions.")
+description = "Tool for simple analysis of a stock portfolio based on transactions.",
+    subcommands = { HelpCommand.class })
 public class Analysiolo implements Callable<Integer> {
 
     public Analysiolo() {}
 
-    @ArgGroup()
+    @Mixin
     private DB db;
 
     static class DB {
-        @Option(names = {"--create-database", "-c"}, description = "create a new database", required = true)
-        File newDBPath;
+        @ArgGroup
+        public ExclusiveOptions opt;
 
-        @Option(names = {"--database", "-d"}, description = "Path to database", required = true)
-        File dbPath;
+        static class ExclusiveOptions {
+            @Option(names = {"--create-database",
+                "-c"}, description = "create a new database")
+            File newDBPath;
+
+            @Option(names = {"--database", "-d"}, description = "Path to database")
+            File dbPath;
+        }
+    }
+
+    @Mixin
+    private TimeFilter tf;
+
+    static class TimeFilter {
+        @ArgGroup
+        public ExclusiveTFOptions opt;
+
+        static class ExclusiveTFOptions {
+            @Option(names = "--period", arity = "1..2", required = true)
+            java.util.List<String> period;
+
+            @Option(names = "--date", arity = "1", required = true)
+            LocalDate date;
+        }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
-    @Option(names = {"--dry-run", "-n"})
+    @Option(names = {"--dry-run", "-n"}, scope = ScopeType.INHERIT)
     private boolean dryRun = false;
 
-    @Option(names = {"--ingest", "--parse", "--file", "-f"}, description = "path to file with transactions to process")
+    @Option(names = {"--ingest", "--parse", "--file", "-f"}, description = "path to file with "
+        + "transactions to process", scope = ScopeType.INHERIT)
     private File fileTransactions;
 
-    @Option(names = "--filter", split = ",", arity = "1..*")
+    @Option(names = "--filter", split = ",", arity = "1..*", scope = ScopeType.INHERIT)
     private String[] stockFilter;
-
-    @ArgGroup()
-    private TimeFilter timeFilter;
-
-    static class TimeFilter {
-        @Option(names = "--period", arity = "1..2", required = true)
-        java.util.List<String> period;
-
-        @Option(names = "--date", arity = "1", required = true)
-        LocalDate date;
-    }
 
     // subcommand
     @Command(name = "price")
-    int price() {
+    int price(@Mixin DB db, @Mixin TimeFilter tf) {
         // --filter inception not supported
         System.out.println("Subcommand: price");
         return 1;
     }
 
     @Command(name = "value")
-    int value() {
+    int value(@Mixin DB db, @Mixin TimeFilter tf) {
         System.out.println("Subcommand: value");
         Result<DataSource> rDS = checkForDB(db);
 
         if (fileTransactions != null)
             rDS = rDS.flatMap(ds -> ingestTransactions(ds, fileTransactions));
 
-        if (timeFilter != null) {
+        if (tf != null) {
             System.out.print("Only considering transactions between/on date: ");
-            if (timeFilter.date != null)
-                System.out.println(prettyPrintList(List.of(timeFilter.date)));
+            if (tf.opt.date != null)
+                System.out.println(prettyPrintList(List.of(tf.opt.date)));
             else
-                System.out.println(prettyPrintList(timeFilter.period));
+                System.out.println(prettyPrintList(tf.opt.period));
         }
 
         List<Symbol> symFilter = stockFilter == null
@@ -153,26 +168,26 @@ public class Analysiolo implements Callable<Integer> {
                 .map(ignore -> t._1)
 //                .map(l -> {System.out.println(l); return l;})
                 .map(l -> l.filter(tx -> symFilter.contains(tx.getSymbol())))
-                .map(l -> l.filter(timePeriodComparator(timeFilter)))
+                .map(l -> l.filter(timePeriodComparator(tf)))
 //                .map(l -> {System.out.println(l); return l;})
                 .mapEmptyCollection()
                 .flatMap(Portfolio::portfolio)
                 .map(Portfolio::currentValue));
 
         rTXs.failIfEmpty("No transactions provided")
-            .forEachOrFail(res -> System.out.println("Portfolio valued on " + computeDate(timeFilter) + " at " + res))
+            .forEachOrFail(res -> System.out.println("Portfolio valued on " + computeDate(tf) + " at " + res))
             .forEach(failure -> System.out.println("Error: " + failure));
         return 1;
     }
 
     @Command(name = "avgCost")
-    void avgCost() {
+    void avgCost(@Mixin DB db, @Mixin TimeFilter tf) {
         // --date not supported
         System.out.println("Subcommand: avgCost");
     }
 
     @Command(name = "twrr")
-    void TWRR() {
+    void TWRR(@Mixin DB db, @Mixin TimeFilter tf) {
         // --date not supported
         System.out.println("Subcommand: twrr");
     }
@@ -181,7 +196,7 @@ public class Analysiolo implements Callable<Integer> {
     @Override
     public Integer call() {
         System.out.println("No subcommand specified, assuming subcommand value");
-        return value();
+        return value(db, tf);
     }
 
     public static void main(String[] args) {
@@ -191,12 +206,12 @@ public class Analysiolo implements Callable<Integer> {
 
     // Helper methods
     protected static Function<Transaction, Boolean> timePeriodComparator(final TimeFilter filter) {
-        if (filter == null)
+        if (filter == null || filter.opt == null)
             return tx -> true;
-        if (filter.date != null)
-            return tx -> tx.getDate().compareTo(filter.date) == 0;
+        if (filter.opt.date != null)
+            return tx -> tx.getDate().compareTo(filter.opt.date) == 0;
         else {
-            List<String> period = List.of(filter.period);
+            List<String> period = List.of(filter.opt.period);
             if (period.size() == 1) {
                 return switch (period.head()) {
                     case "now" -> tx -> tx.getDate().equals(LocalDate.now());
@@ -222,10 +237,10 @@ public class Analysiolo implements Callable<Integer> {
     protected static String computeDate(final TimeFilter filter) {
         if (filter == null)
             return LocalDate.now().toString();
-        if (filter.date != null)
-            return filter.date.toString();
+        if (filter.opt.date != null)
+            return filter.opt.date.toString();
         else {
-            String lastElement = filter.period.get(filter.period.size() - 1);
+            String lastElement = filter.opt.period.get(filter.opt.period.size() - 1);
             return lastElement.equals("inception")
                    ? LocalDate.now().toString()
                    : parsePeriod(lastElement).toString();
@@ -261,22 +276,22 @@ public class Analysiolo implements Callable<Integer> {
     }
 
     private Result<DataSource> checkForDB(DB db) {
-        if (db == null)
+        if (db == null || db.opt == null)
             return Result.failure("No path to database given, exiting");
 
         try {
-            String dbPath = removePossibleExtensions(db.dbPath == null
-                                                     ? db.newDBPath.getCanonicalPath()
-                                                     : db.dbPath.getCanonicalPath());
+            String dbPath = removePossibleExtensions(db.opt.dbPath == null
+                                                     ? db.opt.newDBPath.getCanonicalPath()
+                                                     : db.opt.dbPath.getCanonicalPath());
             File dbFullPath = new File(dbPath + ".mv.db");
 
-            if (db.newDBPath != null)
+            if (db.opt.newDBPath != null)
                 System.out.println("Creating a new database at: " + dbFullPath.getCanonicalPath());
             else
                 System.out.println("Using database at: " + dbFullPath);
 
 
-            return db.dbPath == null
+            return db.opt.dbPath == null
                                      ? !dbFullPath.exists() // creating a new database
                                        ? DataSource.open(dbPath)
                                        : Result.failure("Database " + dbFullPath.getCanonicalPath()
