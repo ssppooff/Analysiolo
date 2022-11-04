@@ -52,4 +52,14 @@ class StockTest {
     }
 
   }
+
+  @Test
+  void getPriceOn() {
+    LocalDate date = LocalDate.parse("2022-08-25");
+    Result<BigDecimal> price = assertSuccess(stock.getPriceOn(date));
+    if (stock.getSymbol().getSymbolStr().equals("^GSPC"))
+      price.forEach(p -> assertEquals(new BigDecimal("4199.120117"), p));
+    if (stock.getSymbol().getSymbolStr().equals("TSLA"))
+      price.forEach(p -> assertEquals(new BigDecimal("296.070007"), p));
+  }
 }

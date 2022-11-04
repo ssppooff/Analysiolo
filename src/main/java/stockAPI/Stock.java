@@ -50,6 +50,42 @@ public class Stock {
     return yfStock.getQuote().getPrice();
   }
 
+  /** If the price is outside the currently held historical data (which it probably will,
+   * since this method is only invoked from the subcommand `price`) it will *not* be incorporated
+   * into the price history held by the stock, because it is not a range of historical data, only
+   * a point in time, and therefore would mess with the role of the `earliestDate` field/date.
+   */
+  public Result<BigDecimal> getPriceOn(LocalDate date) {
+    if (earliestDate.compareTo(date) <= -1) {
+      Calendar calDate = convertToCalendar(date, yfStock.getQuote().getTimeZone().toZoneId());
+      return Result.success(
+          priceHistory.stream()
+              .filter(histQuote -> histQuote.getDate().compareTo(calDate) == 0)
+              .toList().get(0)
+              .getClose());
+    }
+
+    try {
+      Calendar onDate = convertToCalendar(date, yfStock.getQuote().getTimeZone().toZoneId());
+      Calendar toDate = (Calendar) onDate.clone();
+      toDate.add(Calendar.DAY_OF_MONTH, 1);
+
+      List<HistoricalQuote> price =
+          yfStock.getHistory(onDate, toDate, Interval.DAILY);
+
+      // reset history of YahooFinance API stock, as yfStock.getHistory overwrites its internal
+      // price history
+      yfStock.setHistory(priceHistory);
+
+      if (price.isEmpty())
+        return Result.failure("No price available for date " + date);
+
+      return Result.success(price.get(0).getClose());
+    } catch (IOException e) {
+      return Result.failure(e);
+    }
+  }
+
   public Result<Stock> updatePrice() {
     try {
       yfStock.getQuote(true);
