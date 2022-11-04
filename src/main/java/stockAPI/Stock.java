@@ -56,6 +56,9 @@ public class Stock {
    * a point in time, and therefore would mess with the role of the `earliestDate` field/date.
    */
   public Result<BigDecimal> getPriceOn(LocalDate date) {
+    if (date.equals(LocalDate.now()))
+      return Result.success(getPrice());
+
     if (earliestDate.compareTo(date) <= -1) {
       ZoneId tz = priceHistory.get(0).getDate().getTimeZone().toZoneId();
       GregorianCalendar askDate = GregorianCalendar.from(date.atStartOfDay(tz));
@@ -89,7 +92,7 @@ public class Stock {
       if (price.isEmpty())
         return Result.failure("No price available for date " + date);
 
-      return Result.success(price.get(price.size() - 1).getClose());
+      return Result.success(price.get(0).getClose());
     } catch (IOException e) {
       return Result.failure(e);
     }
