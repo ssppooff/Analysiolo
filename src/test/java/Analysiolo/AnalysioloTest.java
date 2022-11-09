@@ -1,5 +1,6 @@
+package Analysiolo;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import functionalUtilities.FileReader;
@@ -7,10 +8,8 @@ import functionalUtilities.List;
 import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
-import java.util.function.Function;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import stockAPI.DataSource;
@@ -121,7 +120,7 @@ $ portfolio --get-price TSLA 2021-10-10
 
 class AnalysioloTest {
   String path = "src/test/java/testdata.txt";
-  String pathErrorFile = "src/test/java/testdata_error.txt";
+//  String pathErrorFile = "src/test/java/testdata_error.txt";
   String pathAdditional = "src/test/java/testdata_additional.txt";
   String pathAdditionalError = "src/test/java/testdata_additional_error.txt";
 
@@ -148,8 +147,8 @@ class AnalysioloTest {
     Result<FileReader> fR = FileReader.read(path);
     Result<List<Transaction>> listTx = fR.flatMap(Parser::parseTransactions)
         .map(Tuple::_1)
-        .map(Analysiolo::getOrderSeq)
-        .flatMap(t -> Analysiolo.checkCorrectSequence(t._2, t._1))
+        .map(Utilities::getOrderSeq)
+        .flatMap(t -> Utilities.checkCorrectSequence(t._2, t._1))
         .map(l -> l.sortFP(Comparator.comparing(Transaction::getDate)));
     assertSuccess(fR.flatMap(FileReader::close));
     return listTx;
@@ -170,76 +169,6 @@ class AnalysioloTest {
         .flatMap(t1 -> t1._2.getLastDate().map(t2 -> new Tuple<>(t1._1, new Tuple<>(t2._1, t2._2))));
     assertSuccess(dsRes.map(Tuple::_2).map(Tuple::_2).flatMap(DataSource::close));
     return dsRes.map(t -> new Tuple<>(t._1, t._2._1));
-  }
-
-  @Test
-  void fileNameVerifier() {
-    assertEquals("", Analysiolo.removePossibleExtensions(""));
-
-    String path = "absolute/path/to/testdb";
-    String expPath = "absolute/path/to/testdb";
-    assertEquals(path, Analysiolo.removePossibleExtensions(path));
-
-    path = "absolute/path/to/testdb.db";
-    expPath = "absolute/path/to/testdb";
-    assertEquals(expPath, Analysiolo.removePossibleExtensions(path));
-
-    path = "absolute/path/to/testdb.mv.db";
-    expPath = "absolute/path/to/testdb";
-    assertEquals(expPath, Analysiolo.removePossibleExtensions(path));
-
-    path = "absolute/path.db/to/testdb.mv.db";
-    expPath = "absolute/path.db/to/testdb";
-    assertEquals(expPath, Analysiolo.removePossibleExtensions(path));
-
-    path = "absolute/path.db/to/testdb";
-    expPath = "absolute/path.db/to/testdb";
-    assertEquals(expPath, Analysiolo.removePossibleExtensions(path));
-
-    path = "absolute with spaces/path.db/to/testdb.db";
-    expPath = "absolute with spaces/path.db/to/testdb";
-    assertEquals(expPath, Analysiolo.removePossibleExtensions(path));
-  }
-
-  @Test
-  void getOrderSeqTest() {
-    List<Transaction> lDates = List.of(
-        Transaction.transaction(LocalDate.parse("2022-12-12"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-12-13"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-12-20"), "SP500", 10, BigDecimal.ONE));
-    assertTrue(Analysiolo.getOrderSeq(lDates)._1);
-    lDates = List.of(
-        Transaction.transaction(LocalDate.parse("2022-12-20"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-12-13"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-12-12"), "SP500", 10, BigDecimal.ONE));
-    assertFalse(Analysiolo.getOrderSeq(lDates)._1);
-  }
-
-  @Test
-  void checkSequenceTest() {
-    List<Transaction> lTx = List.of(
-        Transaction.transaction(LocalDate.parse("2022-09-01"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-10-01"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-11-01"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-12-01"), "SP500", 10, BigDecimal.ONE));
-    List<Transaction> lTxError = List.of(
-        Transaction.transaction(LocalDate.parse("2022-09-01"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-11-01"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-10-01"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-12-01"), "SP500", 10, BigDecimal.ONE));
-    assertSuccess(Analysiolo.checkCorrectSequence(lTx, true));
-
-    Result<List<Transaction>> res = assertFailure(Analysiolo.checkCorrectSequence(lTxError, true));
-    Result<List<Transaction>> expRes = Result.failure("Wrong date after line 2");
-    assertEquals(expRes, res);
-
-    lTxError = List.of(
-        Transaction.transaction(LocalDate.parse("2022-12-01"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-10-01"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-11-01"), "SP500", 10, BigDecimal.ONE),
-        Transaction.transaction(LocalDate.parse("2022-09-01"), "SP500", 10, BigDecimal.ONE));
-    res = assertFailure(Analysiolo.checkCorrectSequence(lTxError, false));
-    assertEquals(expRes, res);
   }
 
   @Test
@@ -291,14 +220,6 @@ class AnalysioloTest {
     Result<Map<Symbol, Integer>> res = listTx.flatMap(l -> l.fpStream()
         .foldLeft(dbStocks, Parser::checkForNegativeStock));
     assertSuccess(res);
-  }
-
-  @Test
-  void checkSequenceError() {
-    // Read input data (simulates text file or directly from CLI)
-    // sort the transactions
-    Result<List<Transaction>> err = readTxFromFile(pathAdditionalError);
-    assertFailure(err);
   }
 
   @Test
@@ -357,87 +278,5 @@ class AnalysioloTest {
 
     // Close data source
     assertSuccess(res.map(Tuple::_2).flatMap(DataSource::close));
-  }
-
-  @Test
-  void periodTimeFilterTest() {
-//  possibilities:
-//  -d demo.db (equiv)
-//  -d demo.db --period inception (equiv)
-//  -d demo.db --period inception now (equiv)
-//  -d demo.db --period now (only txs from today)
-//  -d demo.db --period 2021-10-10 (from-date until now)
-//  -d demo.db --period 2021-10-10 now (equiv to ^)
-//  -d demo.db --period inception 2021-10-10 (from- to end-date)
-
-    Analysiolo.TimeFilter tf = new Analysiolo.TimeFilter();
-    tf.opt.date = null;
-    tf.opt.period = List.of("now");
-    Function<LocalDate, Boolean> comp = date -> Analysiolo.timePeriodComparator(tf)
-            .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
-    assertFalse(comp.apply(LocalDate.parse("2020-01-01")));
-    assertTrue(comp.apply(LocalDate.now()));
-
-    tf.opt.period = List.of("inception");
-    comp = date -> Analysiolo.timePeriodComparator(tf)
-            .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
-    assertTrue(comp.apply(LocalDate.parse("1000-01-01")));
-    assertTrue(comp.apply(LocalDate.now()));
-
-    tf.opt.period = List.of("inception", "now");
-    comp = date -> Analysiolo.timePeriodComparator(tf)
-        .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
-    assertTrue(comp.apply(LocalDate.parse("1000-01-01")));
-    assertTrue(comp.apply(LocalDate.now()));
-
-    tf.opt.period = List.of("now", "inception");
-    comp = date -> Analysiolo.timePeriodComparator(tf)
-        .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
-    assertFalse(comp.apply(LocalDate.parse("1000-01-02")));
-    assertFalse(comp.apply(LocalDate.now()));
-
-    tf.opt.period = List.of("2021-10-10");
-    comp = date -> Analysiolo.timePeriodComparator(tf)
-        .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
-    assertTrue(comp.apply(LocalDate.parse("2021-10-11")));
-    assertTrue(comp.apply(LocalDate.now()));
-
-    tf.opt.period = List.of("2021-10-10", "now");
-    comp = date -> Analysiolo.timePeriodComparator(tf)
-        .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
-    assertTrue(comp.apply(LocalDate.parse("2021-10-11")));
-    assertTrue(comp.apply(LocalDate.now()));
-
-    tf.opt.period = List.of("inception", "2021-10-10");
-    comp = date -> Analysiolo.timePeriodComparator(tf)
-        .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
-    assertFalse(comp.apply(LocalDate.parse("2021-10-11")));
-    assertTrue(comp.apply(LocalDate.parse("2021-10-10")));
-  }
-
-  @Test
-  void computeDateTest() {
-    Analysiolo.TimeFilter tf = new Analysiolo.TimeFilter();
-    tf.opt.date = LocalDate.parse("2021-10-11");
-    String expStr = "2021-10-11";
-    assertEquals(expStr, Analysiolo.computeDate(tf));
-
-    tf.opt.date = null;
-    tf.opt.period = List.of("now");
-    expStr = LocalDate.now().toString();
-    assertEquals(expStr, Analysiolo.computeDate(tf));
-
-    tf.opt.period = List.of("inception", "now");
-    expStr = LocalDate.now().toString();
-    assertEquals(expStr, Analysiolo.computeDate(tf));
-
-    tf.opt.period = List.of("inception", "2021-10-11");
-    expStr = "2021-10-11";
-    assertEquals(expStr, Analysiolo.computeDate(tf));
-
-    tf.opt.period = List.of("2021-10-11");
-    expStr = "2021-10-11";
-    assertEquals(expStr, Analysiolo.computeDate(tf));
-
   }
 }
