@@ -12,11 +12,15 @@ import functionalUtilities.FileReader;
 import functionalUtilities.List;
 import functionalUtilities.Map;
 import functionalUtilities.Result;
+import functionalUtilities.Stream;
 import functionalUtilities.Tuple;
 import java.io.File;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import stockAPI.DataSource;
@@ -257,19 +261,23 @@ class AnalysioloTest {
     TimeFilter tf = new TimeFilter();
     tf.opt = null;
 
-    java.util.List<String> stocks = null;
+    java.util.List<String> stocks = java.util.List.of("VTI");
     File txFile = new File("src/test/java/testdata.txt");
 
     var res = assertSuccess(Analysiolo.value_(db, tf, stocks, txFile));
     BigDecimal expValue;
     res.forEachOrFail(l -> assertFalse(l.isEmpty()))
         .forEach(Assertions::fail);
-    res.forEach(val -> System.out.println("Current value: " + val));
+    String stockfiler = stocks.toString();
+    res.forEach(l -> System.out.println("Current value, filtering for stocks "
+        + stockfiler + ": " + l.head()._2));
 
     // Don't recreate database each time
     db.opt.dbPath = new File("src/test/java/testdb.mv.db");
     db.opt.newDBPath = null;
+
     txFile = null;
+    stocks = null;
 
     String dateStr1 = "2021-11-07";
     String dateStr2 = "2022-11-07";
@@ -298,6 +306,63 @@ class AnalysioloTest {
 
     // Clean up database
     assertSuccess(deleteDB(db));
+  }
+
+  static Result<List<List<BigDecimal>>> resultPrices(TimeFilter tf,
+      java.util.List<String> symbols) {
+    return Analysiolo.price_(tf, symbols)
+        .map(outerL -> outerL.map(Tuple::_2)
+            .map(innerL -> innerL.map(Tuple::_2)));
+  }
+
+  // price (date, period): (needs stock filter) date -> price of stock on specific date (make sure
+  //   it is today or before) if today print current price, period -> price of stock on both dates +
+  //   delta, nothing -> current price
+  @Test
+  void priceTest() {
+
+    String dateStr1 = "2021-11-07";
+    String dateStr2 = "2022-11-07";
+
+    java.util.List<String> stocks = java.util.List.of("TSLA", "VTI");
+
+    // no --date or --period -> current price
+    TimeFilter tf = new TimeFilter();
+    tf.opt = null;
+    var res = Analysiolo.price_(tf, stocks)
+        .map(l -> l.head()._2);
+    Result<List<BigDecimal>> currPrices = assertSuccess(res
+        .map(l -> l.map(Tuple::_2)));
+//    res.forEach(l -> l
+//        .forEach(t -> System.out.println("Current value of " + t.toString(":"))));
+
+    // --date -> if today -> current price otherwise price on given date
+    tf = prepTimeFilterOptions();
+    tf.opt.date = LocalDate.now();
+    assertEquals(currPrices, resultPrices(tf, stocks).map(List::head));
+
+    stocks = java.util.List.of("TSLA");
+    tf.opt.date = LocalDate.parse(dateStr1);
+    assertEquals(Result.success(new BigDecimal("390.666656")),
+        resultPrices(tf, stocks).map(l -> l.head().head()));
+
+    // --period -> if only size() == 1 && today: same as --date=today, if size() == 1: price on
+    // first date and today, if size() == 2 price on both dates
+    tf.opt.date = null;
+    tf.opt.period = java.util.List.of(LocalDate.now().toString());
+    stocks = java.util.List.of("TSLA", "VTI");
+    assertEquals(currPrices, resultPrices(tf, stocks).map(List::head));
+
+    List<List<BigDecimal>> expPrices;
+    tf.opt.period = java.util.List.of(dateStr1);
+    expPrices = List.of(List.of(new BigDecimal("390.666656"), new BigDecimal("238.830002")),
+        currPrices.getOrThrow());
+    assertEquals(Result.success(expPrices), resultPrices(tf, stocks));
+
+    tf.opt.period = java.util.List.of(dateStr1, dateStr2);
+    expPrices = List.of(List.of(new BigDecimal("390.666656"), new BigDecimal("238.830002")),
+        List.of(new BigDecimal("214.979996"), new BigDecimal("188.339996")));
+    assertEquals(Result.success(expPrices), resultPrices(tf, stocks));
   }
 
   @Test
