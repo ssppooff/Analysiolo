@@ -178,8 +178,7 @@ class AnalysioloTest {
     return dsRes.map(t -> new Tuple<>(t._1, t._2._1));
   }
 
-  @Test
-  void listTest() {
+  DB prepDBOptions() {
     DB db = new DB();
     db.opt = new ExclusiveOptions();
     db.opt.dbPath = null;
@@ -187,9 +186,34 @@ class AnalysioloTest {
     if (db.opt.newDBPath.exists())
       assertTrue(db.opt.newDBPath.delete());
 
+    return db;
+  }
+
+  TimeFilter prepTimeFilterOptions() {
     TimeFilter tf = new TimeFilter();
     tf.opt = new ExclusiveTFOptions();
     tf.opt.date = null;
+    tf.opt.period = null;
+    return tf;
+  }
+
+  Result<Boolean> deleteDB(DB db) {
+    if (db != null && db.opt != null) {
+      File path = db.opt.newDBPath == null
+          ? db.opt.dbPath
+          : db.opt.newDBPath;
+      assertTrue(path.exists());
+      assertTrue(path.delete());
+      return Result.success(true);
+    }
+    return Result.failure("db.opt is null");
+  }
+
+  @Test
+  void listTest() {
+    DB db = prepDBOptions();
+
+    TimeFilter tf = prepTimeFilterOptions();
     tf.opt.period = java.util.List.of("2021-05-01", "2021-11-30");
 
     java.util.List<String> stocks = java.util.List.of("VTI");
@@ -199,8 +223,7 @@ class AnalysioloTest {
     assertSuccess(res)
         .forEachOrFail(lTx -> assertEquals(3, lTx.size()))
         .forEach(Assertions::fail);
-    assertTrue(db.opt.newDBPath.exists());
-    assertTrue(db.opt.newDBPath.delete());
+    assertSuccess(deleteDB(db));
 
     stocks = null;
     tf.opt.date = LocalDate.parse("2021-09-08");
@@ -209,8 +232,7 @@ class AnalysioloTest {
     assertSuccess(res)
         .forEachOrFail(lTx -> assertEquals(5, lTx.size()))
         .forEach(Assertions::fail);
-    assertTrue(db.opt.newDBPath.exists());
-    assertTrue(db.opt.newDBPath.delete());
+    assertSuccess(deleteDB(db));
 
     stocks = java.util.List.of("MSFT");
     res = Analysiolo.list_(db, tf, stocks, txFile);
@@ -225,18 +247,12 @@ class AnalysioloTest {
     assertSuccess(res)
         .forEachOrFail(lTx -> assertEquals(13, lTx.size()))
         .forEach(Assertions::fail);
-    assertTrue(db.opt.dbPath.exists());
-    assertTrue(db.opt.dbPath.delete());
+    assertSuccess(deleteDB(db));
   }
 
   @Test
   void valueTest() {
-    DB db = new DB();
-    db.opt = new ExclusiveOptions();
-    db.opt.dbPath = null;
-    db.opt.newDBPath = new File("src/test/java/testdb.mv.db");
-    if (db.opt.newDBPath.exists())
-      assertTrue(db.opt.newDBPath.delete());
+    DB db = prepDBOptions();
 
     TimeFilter tf = new TimeFilter();
     tf.opt = null;
@@ -257,9 +273,8 @@ class AnalysioloTest {
 
     String dateStr1 = "2021-11-07";
     String dateStr2 = "2022-11-07";
-    tf.opt = new ExclusiveTFOptions();
+    tf = prepTimeFilterOptions();
     tf.opt.date = LocalDate.parse(dateStr1);
-    tf.opt.period = null;
     res = Analysiolo.value_(db, tf, stocks, txFile);
     expValue = new BigDecimal("158375.242809");
     assertSuccess(res)
@@ -282,8 +297,7 @@ class AnalysioloTest {
         .forEach(Assertions::fail);
 
     // Clean up database
-    assertTrue(db.opt.dbPath.exists());
-    assertTrue(db.opt.dbPath.delete());
+    assertSuccess(deleteDB(db));
   }
 
   @Test
