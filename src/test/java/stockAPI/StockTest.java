@@ -62,4 +62,17 @@ class StockTest {
     if (stock.getSymbol().getSymbolStr().equals("TSLA"))
       price.forEach(p -> assertEquals(new BigDecimal("296.070007"), p));
   }
+
+  @Test
+  void fillHistoricalDataTest() {
+    // stock created with historical data beginning from "2021-12-28"
+    LocalDate fillDate = LocalDate.parse("2021-01-01");
+    stock = assertSuccess(stock.fillHistoricalData(fillDate)).getOrThrow();
+    BigDecimal price = assertSuccess(stock.getPriceOn(fillDate.plusDays(2))).getOrThrow();
+
+    if (stock.getSymbol().getSymbolStr().equals("^GSPC"))
+      assertEquals(new BigDecimal("3732.040039"), price);
+    if (stock.getSymbol().getSymbolStr().equals("TSLA"))
+      assertEquals(new BigDecimal("231.593338"), price);
+  }
 }

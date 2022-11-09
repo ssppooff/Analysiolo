@@ -57,21 +57,30 @@ public class Stock {
    */
   public Result<BigDecimal> getPriceOn(LocalDate date) {
     if (earliestDate.compareTo(date) <= -1) {
-      Calendar calDate = convertToCalendar(date, yfStock.getQuote().getTimeZone().toZoneId());
-      return Result.success(
-          priceHistory.stream()
-              .filter(histQuote -> histQuote.getDate().compareTo(calDate) == 0)
-              .toList().get(0)
-              .getClose());
+      ZoneId tz = priceHistory.get(0).getDate().getTimeZone().toZoneId();
+      GregorianCalendar askDate = GregorianCalendar.from(date.atStartOfDay(tz));
+
+      java.util.List<HistoricalQuote> res = priceHistory.stream()
+          .filter(histQuote -> histQuote.getDate().compareTo(askDate) == 0)
+          .toList();
+      for (int i = 1; res.isEmpty(); ) {
+        GregorianCalendar earlierDate = GregorianCalendar.from(
+            date.minusDays(i * 7).atStartOfDay(tz));
+        res = priceHistory.stream()
+            .filter(histQuote -> histQuote.getDate().compareTo(askDate) <= 0
+                && histQuote.getDate().compareTo(earlierDate) >= 0).toList();
+      }
+
+      return Result.success(res.get(res.size() - 1).getClose());
     }
 
     try {
-      Calendar onDate = convertToCalendar(date, yfStock.getQuote().getTimeZone().toZoneId());
-      Calendar toDate = (Calendar) onDate.clone();
-      toDate.add(Calendar.DAY_OF_MONTH, 1);
+      ZoneId utc = ZoneId.of("UTC");
+      // go back a few days, in case the asking date is a holiday
+      Calendar askDate = GregorianCalendar.from(date.minusDays(5).atStartOfDay(utc));
+      Calendar toDate = GregorianCalendar.from(date.plusDays(1).atStartOfDay(utc));
 
-      List<HistoricalQuote> price =
-          yfStock.getHistory(onDate, toDate, Interval.DAILY);
+      List<HistoricalQuote> price = yfStock.getHistory(askDate, toDate, Interval.DAILY);
 
       // reset history of YahooFinance API stock, as yfStock.getHistory overwrites its internal
       // price history
@@ -80,7 +89,7 @@ public class Stock {
       if (price.isEmpty())
         return Result.failure("No price available for date " + date);
 
-      return Result.success(price.get(0).getClose());
+      return Result.success(price.get(price.size() - 1).getClose());
     } catch (IOException e) {
       return Result.failure(e);
     }
@@ -108,11 +117,14 @@ public class Stock {
   }
 
   public Result<Stock> fillHistoricalData(LocalDate from) {
-    return fillHistory(yfStock, from, earliestDate.minusDays(1))
-        .map(history ->
-            new Stock(yfStock, history._1, history._2));
     if (from.compareTo(earliestDate) >= 0)
       return Result.success(this);
+
+    return fillHistory(yfStock, from, earliestDate).map(t -> {
+      priceHistory.addAll(t._1);
+      priceHistory.sort(Comparator.comparing(HistoricalQuote::getDate));
+      return new Stock(yfStock, priceHistory, t._2);
+    });
   }
 
   @Override
