@@ -120,7 +120,7 @@ public class Stock {
     if (from.compareTo(earliestDate) >= 0)
       return Result.success(this);
 
-    return fillHistory(yfStock, from, earliestDate).map(t -> {
+    return getHistory(yfStock, from, earliestDate).map(t -> {
       priceHistory.addAll(t._1);
       priceHistory.sort(Comparator.comparing(HistoricalQuote::getDate));
       return new Stock(yfStock, priceHistory, t._2);
@@ -146,7 +146,7 @@ public class Stock {
   }
 
   public static Result<Stock> stock(String symbol, LocalDate from) {
-    return getStock(symbol).flatMap(stock -> fillHistory(stock, from).map(history ->
+    return getStock(symbol).flatMap(stock -> getHistory(stock, from).map(history ->
         new Stock(stock, history._1, history._2)));
   }
 
@@ -187,10 +187,10 @@ public class Stock {
     }
   }
 
-  private static Result<Tuple<List<HistoricalQuote>, LocalDate>> fillHistory(yahoofinance.Stock stock, LocalDate from) {
-    return fillHistory(stock, from, LocalDate.now());
+  private static Result<Tuple<List<HistoricalQuote>, LocalDate>> getHistory(yahoofinance.Stock stock, LocalDate from) {
+    return getHistory(stock, from, LocalDate.now());
   }
-  private static Result<Tuple<List<HistoricalQuote>, LocalDate>> fillHistory(yahoofinance.Stock stock, LocalDate from, LocalDate to) {
+  private static Result<Tuple<List<HistoricalQuote>, LocalDate>> getHistory(yahoofinance.Stock stock, LocalDate from, LocalDate to) {
     try {
       Function<LocalDate, Calendar> toCalendar = d -> convertToCalendar(d, stock.getQuote().getTimeZone().toZoneId());
       Calendar dateFrom = toCalendar.apply(from);
