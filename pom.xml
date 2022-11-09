@@ -16,15 +16,10 @@
       <dependency>
         <groupId>org.junit.jupiter</groupId>
         <artifactId>junit-jupiter</artifactId>
-        <version>RELEASE</version>
+        <version>5.9.0</version>
         <scope>test</scope>
       </dependency>
-      <dependency>
-        <groupId>org.junit.jupiter</groupId>
-        <artifactId>junit-jupiter</artifactId>
-        <version>RELEASE</version>
-        <scope>test</scope>
-      </dependency>
+      <!--suppress VulnerableLibrariesLocal -->
       <dependency>
         <groupId>com.yahoofinance-api</groupId>
         <artifactId>YahooFinanceAPI</artifactId>
