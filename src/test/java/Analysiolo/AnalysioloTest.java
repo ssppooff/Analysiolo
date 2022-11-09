@@ -1,13 +1,20 @@
 package Analysiolo;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import Analysiolo.Analysiolo.DB;
+import Analysiolo.Analysiolo.DB.ExclusiveOptions;
+import Analysiolo.Analysiolo.TimeFilter;
+import Analysiolo.Analysiolo.TimeFilter.ExclusiveTFOptions;
 import functionalUtilities.FileReader;
 import functionalUtilities.List;
 import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
+import java.io.File;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Comparator;
 import org.junit.jupiter.api.Assertions;
@@ -169,6 +176,114 @@ class AnalysioloTest {
         .flatMap(t1 -> t1._2.getLastDate().map(t2 -> new Tuple<>(t1._1, new Tuple<>(t2._1, t2._2))));
     assertSuccess(dsRes.map(Tuple::_2).map(Tuple::_2).flatMap(DataSource::close));
     return dsRes.map(t -> new Tuple<>(t._1, t._2._1));
+  }
+
+  @Test
+  void listTest() {
+    DB db = new DB();
+    db.opt = new ExclusiveOptions();
+    db.opt.dbPath = null;
+    db.opt.newDBPath = new File("src/test/java/testdb.mv.db");
+    if (db.opt.newDBPath.exists())
+      assertTrue(db.opt.newDBPath.delete());
+
+    TimeFilter tf = new TimeFilter();
+    tf.opt = new ExclusiveTFOptions();
+    tf.opt.date = null;
+    tf.opt.period = java.util.List.of("2021-05-01", "2021-11-30");
+
+    java.util.List<String> stocks = java.util.List.of("VTI");
+    File txFile = new File("src/test/java/testdata.txt");
+
+    Result<List<Transaction>> res = Analysiolo.list_(db, tf, stocks, txFile);
+    assertSuccess(res)
+        .forEachOrFail(lTx -> assertEquals(3, lTx.size()))
+        .forEach(Assertions::fail);
+    assertTrue(db.opt.newDBPath.exists());
+    assertTrue(db.opt.newDBPath.delete());
+
+    stocks = null;
+    tf.opt.date = LocalDate.parse("2021-09-08");
+    tf.opt.period = null;
+    res = Analysiolo.list_(db, tf, stocks, txFile);
+    assertSuccess(res)
+        .forEachOrFail(lTx -> assertEquals(5, lTx.size()))
+        .forEach(Assertions::fail);
+    assertTrue(db.opt.newDBPath.exists());
+    assertTrue(db.opt.newDBPath.delete());
+
+    stocks = java.util.List.of("MSFT");
+    res = Analysiolo.list_(db, tf, stocks, txFile);
+    assertTrue(res.isEmpty());
+
+    db.opt.dbPath = new File("src/test/java/testdb.mv.db");
+    db.opt.newDBPath = null;
+    tf.opt = null;
+    txFile = null;
+    stocks = null;
+    res = Analysiolo.list_(db, tf, stocks, txFile);
+    assertSuccess(res)
+        .forEachOrFail(lTx -> assertEquals(13, lTx.size()))
+        .forEach(Assertions::fail);
+    assertTrue(db.opt.dbPath.exists());
+    assertTrue(db.opt.dbPath.delete());
+  }
+
+  @Test
+  void valueTest() {
+    DB db = new DB();
+    db.opt = new ExclusiveOptions();
+    db.opt.dbPath = null;
+    db.opt.newDBPath = new File("src/test/java/testdb.mv.db");
+    if (db.opt.newDBPath.exists())
+      assertTrue(db.opt.newDBPath.delete());
+
+    TimeFilter tf = new TimeFilter();
+    tf.opt = null;
+
+    java.util.List<String> stocks = null;
+    File txFile = new File("src/test/java/testdata.txt");
+
+    var res = assertSuccess(Analysiolo.value_(db, tf, stocks, txFile));
+    BigDecimal expValue;
+    res.forEachOrFail(l -> assertFalse(l.isEmpty()))
+        .forEach(Assertions::fail);
+    res.forEach(val -> System.out.println("Current value: " + val));
+
+    // Don't recreate database each time
+    db.opt.dbPath = new File("src/test/java/testdb.mv.db");
+    db.opt.newDBPath = null;
+    txFile = null;
+
+    String dateStr1 = "2021-11-07";
+    String dateStr2 = "2022-11-07";
+    tf.opt = new ExclusiveTFOptions();
+    tf.opt.date = LocalDate.parse(dateStr1);
+    tf.opt.period = null;
+    res = Analysiolo.value_(db, tf, stocks, txFile);
+    expValue = new BigDecimal("158375.242809");
+    assertSuccess(res)
+        .forEachOrFail(l -> assertEquals(expValue, l.head()._2))
+        .forEach(Assertions::fail);
+
+    tf.opt.date = null;
+    tf.opt.period = java.util.List.of(dateStr1);
+    res = Analysiolo.value_(db, tf, stocks, txFile);
+    assertSuccess(res)
+        .forEachOrFail(l -> assertEquals(expValue, l.head()._2))
+        .forEach(Assertions::fail);
+
+    tf.opt.period = java.util.List.of(dateStr1, dateStr2);
+    res = Analysiolo.value_(db, tf, stocks, txFile);
+    assertSuccess(res)
+        .forEachOrFail(l -> {
+          assertEquals(new BigDecimal("158375.242809"), l.head()._2);
+          assertEquals(new BigDecimal("171784.663604"), l.tail().head()._2);})
+        .forEach(Assertions::fail);
+
+    // Clean up database
+    assertTrue(db.opt.dbPath.exists());
+    assertTrue(db.opt.dbPath.delete());
   }
 
   @Test
