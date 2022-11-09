@@ -25,6 +25,8 @@ public abstract class Result<T> implements Serializable {
   public abstract Result<T> mapFailure(String s, Exception e);
   public abstract Result<T> mapFailure(Exception e);
   public abstract Result<T> mapEmptyCollection();
+  public abstract Result<T> mapEmpty(Supplier<T> s);
+  public abstract Result<T> flatMapEmpty(Supplier<Result<T>> s);
   public abstract Result<T> failIfEmpty(String message);
   public abstract void forEach(Effect<T> ef);
   public abstract void forEachOrThrow(Effect<T> ef);
@@ -101,6 +103,16 @@ public abstract class Result<T> implements Serializable {
     @Override
     public Result<T> mapEmptyCollection() {
       return this;
+    }
+
+    @Override
+    public Result<T> mapEmpty(final Supplier<T> s) {
+      return Result.success(s.get());
+    }
+
+    @Override
+    public Result<T> flatMapEmpty(final Supplier<Result<T>> s) {
+      return s.get();
     }
 
     @Override
@@ -234,6 +246,16 @@ public abstract class Result<T> implements Serializable {
     }
 
     @Override
+    public Result<T> mapEmpty(final Supplier<T> s) {
+      return this;
+    }
+
+    @Override
+    public Result<T> flatMapEmpty(final Supplier<Result<T>> s) {
+      return this;
+    }
+
+    @Override
     public Result<T> failIfEmpty(String message) {
       return failure(new RuntimeException(message, exception));
     }
@@ -349,6 +371,16 @@ public abstract class Result<T> implements Serializable {
              : c.isEmpty()
                ? empty()
                : this;
+    }
+
+    @Override
+    public Result<T> mapEmpty(final Supplier<T> s) {
+      return this;
+    }
+
+    @Override
+    public Result<T> flatMapEmpty(final Supplier<Result<T>> s) {
+      return this;
     }
 
     @Override
