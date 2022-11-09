@@ -111,6 +111,8 @@ public class Stock {
     return fillHistory(yfStock, from, earliestDate.minusDays(1))
         .map(history ->
             new Stock(yfStock, history._1, history._2));
+    if (from.compareTo(earliestDate) >= 0)
+      return Result.success(this);
   }
 
   @Override
