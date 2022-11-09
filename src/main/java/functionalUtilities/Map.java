@@ -104,7 +104,7 @@ public class Map<K, V> {
   public <U, W> Map<K, W> zipValWith(Map<K, U> map, Function<K, Function<V, Function<U, W>>> f) {
     return zipVal(this, map, f);
   }
-  public <W> Map<K, Tuple<V, W>> zipValWith(Map<K, W> map2) {
+  public <W> Map<K, Tuple<V, W>> zipVal(Map<K, W> map2) {
     return zipVal(this, map2, k -> v1 -> v2 -> new Tuple<>(v1, v2));
   }
   public static <K, V, U, W> Map<K, W> zipVal(Map<K, V> map1, Map<K, U> map2,
@@ -164,6 +164,16 @@ public class Map<K, V> {
        m2.put(key, f.apply(key).apply(m.get(key)));
      return new Map<>(m2);
    }
+
+  public Map<K, V> filter(Function<K, Function<V, Boolean>> p) {
+    ConcurrentHashMap<K, V> m2 = new ConcurrentHashMap<>();
+    for (K key : m.keySet()) {
+      V val = m.get(key);
+      if (p.apply(key).apply(val))
+        m2.put(key, val);
+    }
+    return new Map<>(m2);
+  }
 
    public static <K, V> Result<Map<K, V>> flattenResultKey(Map<Result<K>, V> map) {
      Result<Map<K, V>> resMap = Result.success(Map.empty());
