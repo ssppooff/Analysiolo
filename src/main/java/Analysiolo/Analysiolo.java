@@ -20,6 +20,7 @@ import stockAPI.DataSource;
 import stockAPI.Portfolio;
 import stockAPI.Stock;
 import stockAPI.Symbol;
+import stockAPI.Transaction;
 
 /* TODO:
     - change name: portfolio + analysis = analysiolio
@@ -51,6 +52,8 @@ $ analysiolo demo.db
 
 * Subcommands
 - price (date, period)
+- list (date, period): date -> every transactions up to (incl.) date, period -> every
+  transactions inside period (inclusive)
 - value (date, period): no date given -> current value, date -> transactions until date and value on
   date, period -> change in value between two dates ie. compute value at both dates
 - avgCost (period)
@@ -131,6 +134,57 @@ public class Analysiolo implements Callable<Integer> {
     private java.util.List<String> stockFilter;
 
     // subcommand
+    static Result<List<Transaction>> prepTransactions(DB db, File txFile) {
+        // Check for db, read & check additional transactions, ingest into ds
+        return Utilities.parseDbOption(db)
+            .flatMap(ds -> Utilities.convertToResult(txFile)
+                .flatMap(Utilities::checkTxIn)
+                .flatMap(ds::insertTransactions)
+                .mapEmpty(() -> ds))
+            .flatMap(DataSource::getTransactions)
+            .flatMap(t -> t._2.close()
+                .map(ignoreReturn -> t._1));
+    }
+
+    static Result<List<Transaction>> list_(DB db, TimeFilter tf,
+                                          java.util.List<String> symbols, File txFile) {
+        // Check for db, read & check additional transactions, ingest into ds
+        // Then filter transactions according to symbols and timefilter
+        return prepTransactions(db, txFile)
+            .map(txs -> txs.filter(Utilities.symbolComparator(symbols)))
+            .map(txs -> txs.filter(Utilities.timePeriodComparator(tf)))
+            .mapEmptyCollection();
+    }
+
+    @Command(name = "list")
+    int list(@Mixin DB db, @Mixin TimeFilter tf) {
+        Result<List<Transaction>> lTx = list_(db, tf, stockFilter, txFile);
+        if (lTx.isFailure()) {
+            lTx.forEach(failure -> System.out.println("Failure: " + failure));
+            return -1;
+        }
+
+        lTx.failIfEmpty("()")
+            .forEachOrFail(l -> l.forEach(System.out::println))
+            .forEach(System.out::println);
+        return 1;
+
+        /* TODO: Output
+        * if Show the transactions according to the time filter
+        * else if dry-run
+        *   output msg for db
+        *   output msg for ingesting
+        *   output msg for period/date filter
+        *   output msg for stock-ticker filter
+
+        if (db.opt.newDBPath != null)
+            System.out.println("Creating a new database at: " + dbFullPath.getCanonicalPath());
+        else
+            System.out.println("Using database at: " + dbFullPath);
+        System.out.println("Ingesting transactions from file " + path);
+         */
+    }
+
     @Command(name = "price")
     int price(@Mixin DB db, @Mixin TimeFilter tf) {
         System.out.println("Subcommand: price");
@@ -185,55 +239,63 @@ public class Analysiolo implements Callable<Integer> {
             }
 
             // TODO: changed parseTimeFilter behaviour when tf.opt == null
-            outputResult(result, Utilities.parseTimeFilter(tf),
-                "There was a problem (result empty)", "Error: ");
+            List<LocalDate> period1 = Utilities.parseTimeFilter(tf);
+            if (!period1.isEmpty()) {
+                String header = period1.size() == 1
+                    ? String.format("Ticker: %tF", period1.get(0))
+                    : String.format("Ticker: %tF -> %tF", period1.get(0), period1.get(1));
+                System.out.println(header);
+            }
+
+            result.failIfEmpty("There was a problem (result empty)")
+                .forEachOrFail(System.out::println)
+                .forEach(failure -> System.out.println("Error: " + failure));
         }
         return 1;
     }
 
-    private static void outputResult(Result<String> res, List<LocalDate> period, String emptyMsg,
-                                     String errorMsg) {
-        if (!period.isEmpty()) {
-            String header = period.size() == 1
-                ? String.format("Ticker: %tF", period.get(0))
-                : String.format("Ticker: %tF -> %tF", period.get(0), period.get(1));
-            System.out.println(header);
-        }
+    static Result<List<Tuple<LocalDate, BigDecimal>>> value_(DB db, TimeFilter tf, java.util.List<String> symbols, File txFile) {
+        Result<List<Transaction>> lTx = prepTransactions(db, txFile)
+            .map(txs -> txs.filter(Utilities.symbolComparator(symbols)));
 
-        res.failIfEmpty(emptyMsg)
-            .forEachOrFail(System.out::println)
-            .forEach(failure -> System.out.println(errorMsg + failure));
+        return List.flattenResult(
+            Utilities.parseTimeFilter(tf)
+                .map(date -> lTx
+                    .flatMap(txs -> valueOnDateFromTx(txs, date)
+                        .map(value -> new Tuple<>(date, value)))));
+    }
+
+    static Result<BigDecimal> valueOnDateFromTx(final List<Transaction> lTx, final LocalDate date) {
+        return Portfolio
+            .portfolio(lTx.filter(tx -> tx.getDate().compareTo(date) <= 0), date)
+            .flatMap(pf -> pf.valueOn(date));
     }
 
     @Command(name = "value")
     int value(@Mixin DB db, @Mixin TimeFilter tf) {
-        Result<DataSource> rDS = Utilities.parseDbOption(db)
-            .flatMap(ds -> Utilities.convertToResult(txFile)
-                .flatMap(Utilities::checkTxIn)
-                .flatMap(ds::insertTransactions));
+        Result<List<Tuple<LocalDate, BigDecimal>>> res = value_(db, tf, stockFilter, txFile);
 
+        /* TODO: Output
+        * if dry-run
+        *   output msg for db
+        *   output msg for ingesting
+        *   output msg for period/date filter
+        *   output msg for stock-ticker filter
         if (tf != null)
             System.out.println(Utilities.msgTimeFilter(tf, true));
+
 
         List<Symbol> symFilter = Utilities.parseStockFilter(stockFilter);
         if (!symFilter.isEmpty())
             System.out.println(
                 "Only considering transactions from the following stocks: "
                     + Utilities.prettifyList(symFilter));
+         */
 
-        var rTXs = rDS.flatMap(DataSource::getTransactions)
-            .flatMap(t -> t._2.close()
-                .map(ignore -> t._1)
-//                .map(l -> {System.out.println(l); return l;})
-                .map(l -> l.filter(tx -> symFilter.contains(tx.getSymbol())))
-                .map(l -> l.filter(Utilities.timePeriodComparator(tf)))
-//                .map(l -> {System.out.println(l); return l;})
-                .mapEmptyCollection()
-                .flatMap(Portfolio::portfolio)
-                .map(Portfolio::currentValue));
-
-        rTXs.failIfEmpty("No transactions provided")
-            .forEachOrFail(res -> System.out.println("Portfolio valued on " + Utilities.computeDate(tf) + " at " + res))
+        // TODO: better output with delta!
+        res.failIfEmpty("No transactions provided")
+            .forEachOrFail(l -> l
+                .forEach(t -> System.out.println("Value on " + t._1 + ": " + t._2)))
             .forEach(failure -> System.out.println("Error: " + failure));
         return 1;
     }
