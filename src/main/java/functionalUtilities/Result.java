@@ -257,7 +257,7 @@ public abstract class Result<T> implements Serializable {
 
     @Override
     public Result<T> failIfEmpty(String message) {
-      return failure(new RuntimeException(message, exception));
+      return this;
     }
 
     @Override
