@@ -53,9 +53,11 @@ public class Portfolio {
   }
 
   public Result<BigDecimal> valueOn(LocalDate date) {
-    return Map.flattenResultVal(positions.mapVal(sp -> sp.getValueOn(date)))
-        .map(m -> m.stream(ignoreSym -> stockPos -> stockPos)
-            .foldLeft(BigDecimal.ZERO, stockPos -> stockPos::add));
+    return date.isEqual(LocalDate.now())
+        ? Result.success(currentValue())
+        : Map.flattenResultVal(positions.mapVal(sp -> sp.getValueOn(date)))
+            .map(m -> m.stream(ignoreSym -> stockPos -> stockPos)
+                .foldLeft(BigDecimal.ZERO, stockPos -> stockPos::add));
   }
 
   private Result<BigDecimal> rateOfReturn(LocalDate from, LocalDate to) {
@@ -98,6 +100,8 @@ public class Portfolio {
   }
 
   public static Result<Portfolio> portfolio(List<Transaction> transactions, LocalDate historyFrom) {
-    return Parser.parseStockPositions(transactions, historyFrom).map(Portfolio::new);
+    return historyFrom.isEqual(LocalDate.now())
+        ? portfolio(transactions)
+        : Parser.parseStockPositions(transactions, historyFrom).map(Portfolio::new);
   }
 }

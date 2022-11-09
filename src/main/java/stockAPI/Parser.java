@@ -64,20 +64,19 @@ public class Parser {
   }
 
   public static Result<Map<Symbol, StockPosition>> parseStockPositions(List<Transaction> l) {
-    var shares = parsePositions(l);
-    List<String> symbols = shares.toList(t -> ignoreVal -> t.getSymbolStr());
-    return Stock.stocks(symbols)
-        .map(mStocks -> mStocks.zipValWith(shares,
-            ignoreSym -> stock -> nShares -> StockPosition.position(stock, nShares)));
+    return parseStockPositions(l, LocalDate.now());
   }
 
   public static Result<Map<Symbol, StockPosition>> parseStockPositions(List<Transaction> l, LocalDate historyFrom) {
-    var shares = parsePositions(l);
+    Map<Symbol, Integer> shares = parsePositions(l).filter(sym -> nShares -> nShares != 0);
     List<String> symbols = shares.toList(t -> ignoreVal -> t.getSymbolStr());
-    return Stock.stocks(symbols).map(mStocks ->
-            mStocks.zipValWith(shares, ignoreSym -> emptyStock -> nShares ->
-                (Result<StockPosition>) emptyStock.fillHistoricalData(historyFrom)
-                    .map(stock -> StockPosition.position(stock, nShares))))
+    return Stock.stocks(symbols)
+        .map(stocksMap -> stocksMap
+            .zipValWith(shares, ignoreSym -> emptyStock -> nShares ->
+                historyFrom.isEqual(LocalDate.now())
+                    ? Result.success(StockPosition.position(emptyStock, nShares))
+                    : (Result<StockPosition>) emptyStock.fillHistoricalData(historyFrom)
+                        .map(filledStock -> StockPosition.position(filledStock, nShares))))
         .flatMap(Map::flattenResultVal);
   }
 }
