@@ -17,6 +17,7 @@ public abstract class List<E> extends AbstractSequentialList<E> {
   @Override
   public abstract boolean isEmpty();
   public abstract Result<E> last();
+  public abstract List<E> append(E e);
 
   private List() {}
 
@@ -69,7 +70,7 @@ public abstract class List<E> extends AbstractSequentialList<E> {
   }
 
   public <T> T foldLeftAbsorbAcc(T acc, T zero, Function<T, Function<E, T>> f) {
-    return foldLeftAbsorbAccPred(acc, (Function<T, Boolean>) zero::equals, f);
+    return foldLeftAbsorbAccPred(acc, zero::equals, f);
   }
   public <T> T foldLeftAbsorbAccPred(T acc, Function<T, Boolean> p, Function<T, Function<E, T>> f) {
     return foldLeftAbsorbAcc_(this, acc, p, f).eval();
@@ -207,6 +208,11 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     public Result<E> last() {
       return Result.empty();
     }
+
+    @Override
+    public List<E> append(final E e) {
+      return prepend(e);
+    }
   }
   private static final class Node<E> extends List<E> {
     private final E head;
@@ -236,6 +242,12 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     public Result<E> last() {
       return last_(this).eval();
     }
+
+    @Override
+    public List<E> append(final E e) {
+      return reverse().prepend(e).reverse();
+    }
+
     private static <E> TailCall<Result<E>> last_(List<E> l) {
       return l.tail().isEmpty()
           ? TailCall.ret(Result.success(l.head()))
