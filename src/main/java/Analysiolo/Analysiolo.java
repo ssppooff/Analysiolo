@@ -51,7 +51,10 @@ $ analysiolo demo.db
 --date closing_price_date (arity 1)
 
 * Subcommands
-- price (date, period)
+- price (date, period): (needs stock filter) date -> price of stock on specific date (make sure
+it is today or before) if today print current price, period -> price of stock on both dates +
+delta, nothing ->
+current price
 - list (date, period): date -> every transactions up to (incl.) date, period -> every
   transactions inside period (inclusive)
 - value (date, period): no date given -> current value, date -> transactions until date and value on
@@ -185,9 +188,26 @@ public class Analysiolo implements Callable<Integer> {
          */
     }
 
+    // price (date, period): (needs stock filter) date -> price of stock on specific date (make
+    //   sure it is today or before) if today print current price, period -> price of stock on both
+    //   dates + delta, nothing ->  current price
+    static Result<List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>>>
+        price_(TimeFilter tf, java.util.List<String> symbols) {
+            return List.flattenResult(Utilities
+                .parseTimeFilter(tf)
+                .map(date -> Stock.stocks(symbols)
+                    .map(m -> m
+                        .mapVal(stock -> stock.getPriceOn(date))
+                        .toList()
+                        .map(Tuple::flattenResultRight))
+                    .flatMap(List::flattenResult)
+                    .map(l -> new Tuple<>(date, l))));
+    }
+
     @Command(name = "price")
     int price(@Mixin DB db, @Mixin TimeFilter tf) {
         System.out.println("Subcommand: price");
+//        var f = price_(tf, stockFilter);
 
         if (db.opt != null)
             System.out.println("Database ignored with command price");
@@ -215,7 +235,6 @@ public class Analysiolo implements Callable<Integer> {
             System.out.println("At least one ticker symbol must be given");
             return -1;
         } else {
-            // TODO: changed parseTimeFilter behaviour when tf.opt == null
             List<LocalDate> period = Utilities.parseTimeFilter(tf);
 
             Result<Map<Symbol, Stock>> stocks = Stock.stocks(List.of(stockFilter));
@@ -238,7 +257,6 @@ public class Analysiolo implements Callable<Integer> {
                     .map(m -> m.toList(strSymPriceDelta).reduce(combineLines));
             }
 
-            // TODO: changed parseTimeFilter behaviour when tf.opt == null
             List<LocalDate> period1 = Utilities.parseTimeFilter(tf);
             if (!period1.isEmpty()) {
                 String header = period1.size() == 1
@@ -312,7 +330,7 @@ public class Analysiolo implements Callable<Integer> {
         System.out.println("Subcommand: twrr");
     }
 
-    // TODO: business logic goes in here
+    // Business logic goes in here
     @Override
     public Integer call() {
         System.out.println("No subcommand specified, assuming subcommand value");
