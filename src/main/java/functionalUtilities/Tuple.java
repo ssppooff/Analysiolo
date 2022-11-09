@@ -17,9 +17,16 @@ public class Tuple<A, B> {
     return _2;
   }
 
-  @Override
-  public String toString() {
-    return String.format("(" + _1 + ", " + _2 + ")");
+  public static <A, B> Result<Tuple<A, B>> flattenResult(Tuple<Result<A>, Result<B>> t) {
+    return Result.map2(t._1, t._2, a -> b -> new Tuple<>(a, b));
+  }
+
+  public static <A, B> Result<Tuple<A, B>> flattenResultLeft(Tuple<Result<A>, B> t) {
+    return t._1.map(a -> new Tuple<>(a, t._2));
+  }
+
+  public static <A, B> Result<Tuple<A, B>> flattenResultRight(Tuple<A, Result<B>> t) {
+    return t._2.map(b -> new Tuple<>(t._1, b));
   }
 
   @Override
