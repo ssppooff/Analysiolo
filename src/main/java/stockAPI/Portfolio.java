@@ -104,4 +104,9 @@ public class Portfolio {
         ? portfolio(transactions)
         : Parser.parseStockPositions(transactions, historyFrom).map(Portfolio::new);
   }
+
+  @Override
+  public String toString() {
+    return "Portfolio: " + positions.toString();
+  }
 }
