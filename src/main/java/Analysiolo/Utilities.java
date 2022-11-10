@@ -194,4 +194,58 @@ final class Utilities {
         System.out.print("Only considering " + word + " between/on date: ");
         return Utilities.prettifyList(Utilities.parseTimeFilter(tf));
     }
+
+    /** Will output only the first x columns, where x is the number of headers given
+//     *
+//     * @param header
+//     * @param data
+//     * @return
+     */
+    static String renderTable(List<String> header, List<List<String>> data) {
+        List<List<String>> paddedData = padData(header, data);
+        // add rules and vertical lines where necessary
+        return "";
+    }
+
+    static String[][] convertToArray(final List<List<String>> a) {
+        // no width-consistency checking
+        int height = a.size();
+        int width = a.head().size();
+
+//        String[][] r1 = new String[a.size()][a.head().size()];
+//        a.foldLeftAbsorbAcc(new Tuple<>(0, r), height -1, currRow -> row -> {
+//            row.foldLeftAbsorbAcc(new Tuple<>(0, r), width -1, currCol -> cell -> {
+//                r1[currCol][currRow] = cell;
+//                return currCol + 1;
+//            });
+//            return currRow + 1;
+//        });
+//        System.out.println(r1[width - 1][height - 1]);
+
+        System.out.println("dimensions: " + height + " x " + width);
+        List<List<String>> remainingData = a;
+        List<String> remainingRowData;
+        String[][] r2 = new String[a.size()][a.head().size()];
+        for (int rowIdx = 0; rowIdx < width; rowIdx++) {
+            remainingRowData = remainingData.head();
+            remainingData = remainingData.tail();
+            System.out.println("row " + rowIdx + " " + remainingRowData);
+            // TODO: run test to see failure
+//            for (int colIdx = 0; colIdx < height; colIdx++) {
+//                System.out.println("col: " + colIdx);
+//                r2[colIdx][rowIdx] = remainingRowData.head();
+//                remainingRowData = remainingRowData.tail();
+//            }
+        }
+//        System.out.println(r2[width - 1][height - 1]);
+        return r2;
+    }
+    static List<List<String>> padData(List<String> header, List<List<String>> data) {
+        // check that number of columns in header is the same in data
+        // set max length for each column the one from header
+        List<Integer> widths = header.map(String::length);
+//        var f=  ls.foldLeft(0, max -> s -> s.length() > max ? s.length() : max);
+        // get max length for each column
+        return null;
+    }
 }
