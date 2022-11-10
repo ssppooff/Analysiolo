@@ -42,4 +42,13 @@ public class Tuple<A, B> {
     return _1.equals(that._1)
         && _2.equals(that._2);
   }
+
+  @Override
+  public String toString() {
+    return toString(",");
+  }
+
+  public String toString(String delimiter) {
+    return "(" + _1 + delimiter + " " + _2 + ")";
+  }
 }
