@@ -6,10 +6,12 @@ import Analysiolo.Analysiolo.DB;
 import functionalUtilities.FileReader;
 import functionalUtilities.List;
 import functionalUtilities.Result;
+import functionalUtilities.Stream;
 import functionalUtilities.Tuple;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -195,57 +197,87 @@ final class Utilities {
         return Utilities.prettifyList(Utilities.parseTimeFilter(tf));
     }
 
-    /** Will output only the first x columns, where x is the number of headers given
-//     *
-//     * @param header
-//     * @param data
-//     * @return
-     */
-    static String renderTable(List<String> header, List<List<String>> data) {
-        List<List<String>> paddedData = padData(header, data);
-        // add rules and vertical lines where necessary
-        return "";
+    static String renderTable(List<List<String>> data, List<String> header) {
+        return renderTable(data, header, "-");
     }
 
-    static String[][] convertToArray(final List<List<String>> a) {
-        // no width-consistency checking
-        int height = a.size();
-        int width = a.head().size();
+    static String renderTable(List<List<String>> data, List<String> header, String separator) {
+        List<String> rule = header.map(hd -> separator.repeat(hd.length()));
+        return renderTable(data.prepend(rule).prepend(header));
+    }
 
-//        String[][] r1 = new String[a.size()][a.head().size()];
-//        a.foldLeftAbsorbAcc(new Tuple<>(0, r), height -1, currRow -> row -> {
-//            row.foldLeftAbsorbAcc(new Tuple<>(0, r), width -1, currCol -> cell -> {
-//                r1[currCol][currRow] = cell;
-//                return currCol + 1;
-//            });
-//            return currRow + 1;
-//        });
-//        System.out.println(r1[width - 1][height - 1]);
+    static String renderTable(List<List<String>> data) {
+        String[][] paddedData = padData(convertToArray(data));
 
-        System.out.println("dimensions: " + height + " x " + width);
-        List<List<String>> remainingData = a;
+        StringBuilder s = new StringBuilder();
+        for (final String[] line : paddedData) {
+            for (final String cell : line)
+                s.append(cell).append(" ");
+            s.append("\n");
+        }
+
+        return s.toString();
+    }
+
+    static String[][] convertToArray(final List<List<String>> data) {
+        int width = data.map(List::size)
+            .foldLeft(0, max -> size -> max > size ? max : size);
+        return data.map(row -> row.toArrayPadded(width, "")).toArray();
+
+        /* procedural
+        List<List<String>> remainingData = data;
         List<String> remainingRowData;
-        String[][] r2 = new String[a.size()][a.head().size()];
-        for (int rowIdx = 0; rowIdx < width; rowIdx++) {
+        for (int rowIdx = 0; rowIdx < height; rowIdx++) {
             remainingRowData = remainingData.head();
             remainingData = remainingData.tail();
-            System.out.println("row " + rowIdx + " " + remainingRowData);
-            // TODO: run test to see failure
-//            for (int colIdx = 0; colIdx < height; colIdx++) {
-//                System.out.println("col: " + colIdx);
-//                r2[colIdx][rowIdx] = remainingRowData.head();
-//                remainingRowData = remainingRowData.tail();
-//            }
+
+            for (int colIdx = 0; colIdx < width; colIdx++) {
+                if (remainingRowData.isEmpty()) {
+                    r[colIdx][rowIdx] = "";
+                } else {
+                    r[colIdx][rowIdx] = remainingRowData.head();
+                    remainingRowData = remainingRowData.tail();
+                }
+            }
         }
-//        System.out.println(r2[width - 1][height - 1]);
-        return r2;
+         */
     }
-    static List<List<String>> padData(List<String> header, List<List<String>> data) {
-        // check that number of columns in header is the same in data
-        // set max length for each column the one from header
-        List<Integer> widths = header.map(String::length);
-//        var f=  ls.foldLeft(0, max -> s -> s.length() > max ? s.length() : max);
-        // get max length for each column
-        return null;
+
+    static String[][] padData(final String[][] data) {
+        int height = data.length;
+        int width = data[0].length;
+        String[][] r = new String[height][width];
+
+        int[] colMax = new int[width];
+        Arrays.fill(colMax, 0);
+
+        for (int col = 0; col < width; col ++) {
+            for (String[] line : data)
+                colMax[col] = Math.max(line[col].length(), colMax[col]);
+
+            for (int row = 0; row < height; row++) {
+                String cell = data[row][col] == null ? "" : data[row][col];
+                int padding = colMax[col] - cell.length();
+                r[row][col] = cell + " ".repeat(padding);
+            }
+        }
+
+        /* using streams
+        String[][] r = new String[width][height];
+        Stream<Integer> columns = Stream.from(0).take(width);
+        Stream<Integer> rows = Stream.from(0).take(height);
+        columns.forEach(col -> rows
+            .map(row -> {
+                colMax[col] = Math.max(data[col][row].length(), colMax[col]);
+                return row;
+            })
+            .forEach(row -> {
+                String cell = data[col][row];
+                int padding = colMax[col] - cell.length();
+                r[col][row] = cell + " ".repeat(padding);
+            } ));
+        */
+
+        return r;
     }
 }

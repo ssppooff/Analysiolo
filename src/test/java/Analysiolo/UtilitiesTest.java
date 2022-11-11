@@ -250,15 +250,46 @@ class UtilitiesTest {
     assertFailure(err);
   }
 
+  List<String> getHeader() {
+    return List.of("(0,0)hd", "(0,2)header", "(0,3)hdFull", "(0,4)blah", "(0,5)testi",
+        "(0,6)nopeaf", "(0,7)");
+  }
+
+  List<List<String>> getTable() {
+    List<String> row1 = List.of("(1,1)", "(1,2)", "(1,3)", "(1,4)", "(1,5)", "(1,6)", "(1,7)");
+    List<String> row2 = List.of("(2,1)", "(2,2)", "(2,3)", "(2,4)", "(2,5)", "(2,6)");
+    List<String> row3 = List.of("(3,1)", "(3,2)", "(3,3)", "(3,4)", "(3,5)", "(3,6)", "(3,7)");
+    List<String> row4 = List.of("(4,1)", "(4,2)", "(4,3)", "(4,4)", "(4,5)", "(4,6)", "(4,7)");
+    List<String> row5 = List.of("(5,1)", "(5,2)", "(5,3)", "(5,4)", "(5,5)", "(5,6)", "(5,7)");
+    List<String> row6 = List.of("(6,1)", "(6,2)", "(6,3)", "(6,4)", "(6,5)", "(6,6)", "(6,7)");
+    return List.of(row1, row2, row3, row4, row5, row6);
+  }
+
   @Test
   void convertToArrayTest() {
-    List<String> row1 = List.of("(1,1)", "(2,1)", "(3,1)", "(4,1)", "(5,1)", "(6,1)", "(7,1)");
-    List<String> row2 = List.of("(1,2)", "(2,2)", "(3,2)", "(4,2)", "(5,2)", "(6,2)", "(7,2)");
-    List<String> row3 = List.of("(1,3)", "(2,3)", "(3,3)", "(4,3)", "(5,3)", "(6,3)", "(7,3)");
-    List<String> row4 = List.of("(1,4)", "(2,4)", "(3,4)", "(4,4)", "(5,4)", "(6,4)", "(7,4)");
-    List<String> row5 = List.of("(1,5)", "(2,5)", "(3,5)", "(4,5)", "(5,5)", "(6,5)", "(7,5)");
-    List<String> row6 = List.of("(1,6)", "(2,6)", "(3,6)", "(4,6)", "(5,6)", "(6,6)", "(7,6)");
-    List<List<String>> table = List.of(row1, row2, row3, row4, row5, row6);
-    Utilities.convertToArray(table);
+    List<List<String>> table = getTable();
+    String[][] res = Utilities.convertToArray(table);
+    int length = res[0].length;
+    for (int row = 1; row < res.length; row++)
+      assertEquals(length, res[row].length);
+    assertEquals("(6,7)", res[5][6]);
+  }
+
+  @Test
+  void padDataTest() {
+    List<List<String>> table = getTable().prepend(getHeader());
+    String[][] padded = Utilities.padData(Utilities.convertToArray(table));
+    List<String> currHd = table.head();
+    for (int col = 0; col < table.head().size(); col++) {
+      assertEquals(currHd.head().length(), padded[0][col].length());
+      currHd = currHd.tail();
+    }
+  }
+
+  @Test
+  void renderTableTest() {
+//    List<List<String>> table = getTable().prepend(getHeader());
+    String r = Utilities.renderTable(getTable(), getHeader(), "+");
+    System.out.println(r);
   }
 }
