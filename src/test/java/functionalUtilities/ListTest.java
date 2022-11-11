@@ -1,11 +1,13 @@
 package functionalUtilities;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.Comparator;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.IndicativeSentencesGeneration;
 import org.junit.jupiter.api.Test;
 
 class ListTest {
@@ -140,5 +142,27 @@ class ListTest {
     List<Integer> l = List.of(1, 2, 3, 4);
     assertEquals(Result.success(4), l.last());
     assertEquals(Result.empty(), List.list().last());
+  }
+
+  @Test
+  void toArrayTest() {
+    List<Integer> l = List.of(1, 2, 3, 4, 5, 6, 7, 8, 9);
+    Integer[] expArr = new Integer[]{1, 2, 3, 4, 5, 6, 7, 8, 9};
+    assertArrayEquals(expArr, l.toArray());
+
+    List<String> lstr = List.of("one", "two", "three", "four");
+    String[] expStr = new String[]{"one", "two", "three", "four"};
+    assertArrayEquals(expStr, lstr.toArray(new String[0]));
+  }
+
+  @Test
+  void toArrayPaddedTest() {
+    List<Integer> l = List.of(1, 2, 3, 4, 5, 6, 7, 8, 9);
+    Integer[] expArr = new Integer[]{1, 2, 3, 4, 5, 6, 7, 8, 9, -1, -1, -1};
+    assertArrayEquals(expArr, l.toArrayPadded(new Integer[0], 12, -1));
+
+    List<String> lstr = List.of("one", "two", "three", "four");
+    String[] expStr = new String[]{"one", "two", "three", "four", "x", "x", "x"};
+    assertArrayEquals(expStr, lstr.toArrayPadded(7, "x"));
   }
 }

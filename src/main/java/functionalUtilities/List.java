@@ -1,6 +1,9 @@
 package functionalUtilities;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.AbstractSequentialList;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -18,6 +21,8 @@ public abstract class List<E> extends AbstractSequentialList<E> {
   public abstract boolean isEmpty();
   public abstract Result<E> last();
   public abstract List<E> append(E e);
+  protected abstract Class<E> getTypeArgument();
+  private int size = -1;
 
   private List() {}
 
@@ -105,14 +110,45 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     return List.of((E[]) a);
   }
 
+  @SuppressWarnings("unchecked")
   @Override
-  public Object[] toArray() {
-    Object[] result = new Object[size()];
+  public E[] toArray() {
+    E[] r = (E[]) java.lang.reflect.Array.newInstance(getTypeArgument(), size());
     int i = 0;
     for (List<E> currHd = this; !currHd.isEmpty(); currHd = currHd.tail())
-      result[i++] = currHd.head();
+      r[i++] = currHd.head();
+    return r;
+  }
 
-    return result;
+  @SuppressWarnings("unchecked")
+  @Override
+  public <T> T[] toArray(T[] a) {
+    T[] r = (T[]) java.lang.reflect.Array.newInstance(a.getClass().getComponentType(), size());
+    zip(Stream.from(0).take(size()).toList(), this)
+        .forEach(t -> r[t._1] = (T) t._2);
+    return r;
+  }
+
+  @SuppressWarnings("unchecked")
+  public E[] toArrayPadded(int length, E padding) {
+    int actualLength = length > size() ? length : size();
+    E[] r = (E[]) java.lang.reflect.Array.newInstance(getTypeArgument(), actualLength);
+    int i = 0;
+    for (List<E> currHd = this; !currHd.isEmpty(); currHd = currHd.tail())
+      r[i++] = currHd.head();
+    Stream.from(size()).take(actualLength - size())
+        .forEach(idx -> r[idx] = padding);
+    return r;
+  }
+
+  @SuppressWarnings("unchecked")
+  public <T> T[] toArrayPadded(T[] a, int length, T padding) {
+    T[] r = (T[]) java.lang.reflect.Array.newInstance(a.getClass().getComponentType(), length);
+    zip(Stream.from(0).take(size()).toList(), this)
+        .forEach(t -> r[t._1] = (T) t._2);
+    Stream.from(size()).take(length - size())
+        .forEach(idx -> r[idx] = padding);
+    return r;
   }
 
   @Override
@@ -213,6 +249,13 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     public List<E> append(final E e) {
       return prepend(e);
     }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    protected Class<E> getTypeArgument() {
+    return (Class<E>) ((ParameterizedType) getClass().getGenericSuperclass())
+        .getActualTypeArguments()[0];
+    }
   }
   private static final class Node<E> extends List<E> {
     private final E head;
@@ -248,6 +291,12 @@ public abstract class List<E> extends AbstractSequentialList<E> {
       return reverse().prepend(e).reverse();
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    protected Class<E> getTypeArgument() {
+      return (Class<E>) head.getClass();
+    }
+
     private static <E> TailCall<Result<E>> last_(List<E> l) {
       return l.tail().isEmpty()
           ? TailCall.ret(Result.success(l.head()))
@@ -268,7 +317,12 @@ public abstract class List<E> extends AbstractSequentialList<E> {
 
   @Override
   public int size() {
-    return size_(0, this).eval();
+    if (size == -1)
+      return size = isEmpty()
+          ? 0
+          : size_(0, this).eval();
+    else
+      return size;
   }
   private static <E> TailCall<Integer> size_(int acc, List<E> l) {
     return l.isEmpty()
