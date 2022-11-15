@@ -5,6 +5,7 @@ import functionalUtilities.Result;
 import functionalUtilities.Tuple;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -47,7 +48,7 @@ public class Stock {
  }
 
   public BigDecimal getPrice() {
-    return yfStock.getQuote().getPrice();
+    return yfStock.getQuote().getPrice().setScale(6, RoundingMode.HALF_UP);
   }
 
   /** If the price is outside the currently held historical data (which it probably will,
@@ -74,7 +75,7 @@ public class Stock {
                 && histQuote.getDate().compareTo(earlierDate) >= 0).toList();
       }
 
-      return Result.success(res.get(res.size() - 1).getClose());
+      return Result.success(res.get(res.size() - 1).getClose().setScale(6, RoundingMode.HALF_UP));
     }
 
     try {
