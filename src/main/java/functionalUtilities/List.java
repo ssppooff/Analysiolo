@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.ListIterator;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 @SuppressWarnings("unused")
@@ -38,8 +39,17 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     return foldRight(List.list(), e -> acc -> acc.prepend(f.apply(e)));
   }
 
+  public <T> List<T> mapWithIdx(Function<Integer, Function<E, T>> f) {
+    return foldLeftWithIdx(List.<T>list(), idx -> acc -> e -> acc.prepend(f.apply(idx).apply(e)))
+        .reverse();
+  }
+
   public <T> T foldRight(T acc, Function<E, Function<T, T>> f) {
     return reverse().foldLeft(acc, accx -> e -> f.apply(e).apply(accx));
+  }
+
+  public <T> T foldRightWithIdx(T acc, Function<Integer, Function<E, Function<T, T>>> f) {
+    return reverse().foldLeftWithIdx(acc, idx -> accx -> e -> f.apply(idx).apply(e).apply(accx));
   }
 
   public List<E> filter(Function<E, Boolean> p) {
@@ -54,8 +64,16 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     });
   }
 
+  public E reduce(E identity, BiFunction<E, E, E> f) {
+    return reduce(identity, x -> y -> f.apply(x, y));
+  }
+
   public E reduce(E identity, Function<E, Function<E, E>> f) {
     return foldLeft(identity, acc -> e -> f.apply(acc).apply(e));
+  }
+
+  public E reduce(BiFunction<E, E, E> f) {
+    return reduce(x -> y -> f.apply(x, y));
   }
 
   public E reduce(Function<E, Function<E, E>> f) {
@@ -84,6 +102,17 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     return p.apply(acc) || l.isEmpty()
         ? TailCall.ret(acc)
         : TailCall.suspend(() -> foldLeftAbsorbAcc_(l.tail(), f.apply(acc).apply(l.head()), p, f));
+  }
+
+  public <T> T foldLeftWithIdx(T acc, Function<Integer, Function<T, Function<E, T>>> f) {
+    return foldLeftWithIdx_(this, 0, acc, f).eval();
+  }
+  private static <E, T> TailCall<T> foldLeftWithIdx_(List<E> l, int idx, T acc,
+      Function<Integer, Function<T, Function<E, T>>> f) {
+    return l.isEmpty()
+        ? TailCall.ret(acc)
+        : TailCall.suspend(() ->
+            foldLeftWithIdx_(l.tail(), idx + 1, f.apply(idx).apply(acc).apply(l.head()), f));
   }
 
   public <T> T foldLeft(T acc, Function<T, Function<E, T>> f) {
