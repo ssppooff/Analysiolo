@@ -1,14 +1,12 @@
 package Analysiolo;
 
 import functionalUtilities.List;
-import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
 import java.io.File;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.concurrent.Callable;
-import java.util.function.Function;
 import picocli.CommandLine;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -206,9 +204,8 @@ public class Analysiolo implements Callable<Integer> {
 
     @Command(name = "price")
     int price(@Mixin DB db, @Mixin TimeFilter tf) {
-        System.out.println("Subcommand: price");
-//        var f = price_(tf, stockFilter);
-
+        // TODO: Input validation
+        /*
         if (db.opt != null)
             System.out.println("Database ignored with command price");
 
@@ -225,50 +222,33 @@ public class Analysiolo implements Callable<Integer> {
             System.out.println(Utilities.msgTimeFilter(tf, false));
         }
 
-        Function<Symbol, Function<BigDecimal, String>> strSymPrice =
-            sym -> price -> String.format("%s: %,.2f", sym, price);
-        Function<Symbol, Function<Tuple<BigDecimal, BigDecimal>, String>> strSymPriceDelta =
-            sym -> prices -> String.format("%s: %,.2f -> %,.2f, delta %+,.2f", sym, prices._1,
-                prices._2, prices._2.subtract(prices._1));
-        Function<String, Function<String, String>> combineLines = msg -> line -> msg + "\n" + line;
         if (stockFilter == null || stockFilter.isEmpty()) {
             System.out.println("At least one ticker symbol must be given");
             return -1;
-        } else {
-            List<LocalDate> period = Utilities.parseTimeFilter(tf);
+        {
+         */
 
-            Result<Map<Symbol, Stock>> stocks = Stock.stocks(List.of(stockFilter));
-            Result<String> result;
-            if (period.isEmpty()) {
-                result = stocks.map(m -> m
-                    .mapVal(Stock::getPrice)
-                    .toList(strSymPrice).reduce(combineLines));
-            } else if (period.size() == 1) {
-                result = stocks.map(m -> m
-                        .mapVal(stock -> stock.getPriceOn(period.head())))
-                    .flatMap(Map::flattenResultVal)
-                    .map(m -> m.toList(strSymPrice).reduce(combineLines));
-            } else { // (period.size() == 2)
-                result =  stocks
-                    .map(m -> m.mapVal(stock -> stock.getPriceOn(period.head())
-                        .flatMap(initPrice -> stock.getPriceOn(period.tail().head())
-                            .map(endPrice -> new Tuple<>(initPrice, endPrice)))))
-                    .flatMap(Map::flattenResultVal)
-                    .map(m -> m.toList(strSymPriceDelta).reduce(combineLines));
-            }
+        /* TODO for ouput/rendering
+         * - refactor into applyTheme(data, theme) & Utilities.basicTheme()/themeWithDelta -> Func
+         * - create basic theme for data w/ 1 price & themeWithDelta for 2 prices
+         * - add '->' vertical line to themeWithDelta
+         */
+        Result<List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>>>
+            prices = price_(tf, stockFilter);
+        var output = prices
+            .map(Utilities::formatDataWithHeader)
+            .map(Utilities::padCells)
+            .map(data -> Utilities.addWithSeparator(data.head(), data.tail()))
+            .map(Utilities::renderTable);
+        System.out.println();
+        output.forEach(System.out::println);
+        System.out.println();
 
-            List<LocalDate> period1 = Utilities.parseTimeFilter(tf);
-            if (!period1.isEmpty()) {
-                String header = period1.size() == 1
-                    ? String.format("Ticker: %tF", period1.get(0))
-                    : String.format("Ticker: %tF -> %tF", period1.get(0), period1.get(1));
-                System.out.println(header);
-            }
+        output.failIfEmpty("Result empty")
+              .forEachOrFail(System.out::println)
+              .forEach(fail -> System.out.println("Something went wrong: " + fail));
 
-            result.failIfEmpty("There was a problem (result empty)")
-                .forEachOrFail(System.out::println)
-                .forEach(failure -> System.out.println("Error: " + failure));
-        }
+        /* TODO: Output if dry-run */
         return 1;
     }
 
@@ -310,7 +290,7 @@ public class Analysiolo implements Callable<Integer> {
                     + Utilities.prettifyList(symFilter));
          */
 
-        // TODO: better output with delta!
+        // TODO: * better output with delta!
         res.failIfEmpty("No transactions provided")
             .forEachOrFail(l -> l
                 .forEach(t -> System.out.println("Value on " + t._1 + ": " + t._2)))
