@@ -12,15 +12,12 @@ import functionalUtilities.FileReader;
 import functionalUtilities.List;
 import functionalUtilities.Map;
 import functionalUtilities.Result;
-import functionalUtilities.Stream;
 import functionalUtilities.Tuple;
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.Comparator;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import stockAPI.DataSource;
@@ -315,6 +312,14 @@ class AnalysioloTest {
             .map(innerL -> innerL.map(Tuple::_2)));
   }
 
+  static boolean withinOnePercent(final BigDecimal expected, final BigDecimal actual) {
+    BigDecimal exp = expected.setScale(6, RoundingMode.HALF_UP);
+    BigDecimal act = actual.setScale(6, RoundingMode.HALF_UP);
+    BigDecimal margin = exp.multiply(BigDecimal.valueOf(0.01)
+                                               .setScale(6, RoundingMode.HALF_UP));
+    return exp.subtract(act).abs().compareTo(margin) <= 0;
+  }
+
   // price (date, period): (needs stock filter) date -> price of stock on specific date (make sure
   //   it is today or before) if today print current price, period -> price of stock on both dates +
   //   delta, nothing -> current price
@@ -333,8 +338,8 @@ class AnalysioloTest {
         .map(l -> l.head()._2);
     Result<List<BigDecimal>> currPrices = assertSuccess(res
         .map(l -> l.map(Tuple::_2)));
-//    res.forEach(l -> l
-//        .forEach(t -> System.out.println("Current value of " + t.toString(":"))));
+    res.forEach(l -> l
+        .forEach(t -> System.out.println("Current price of " + t.toString(":"))));
 
     // --date -> if today -> current price otherwise price on given date
     tf = prepTimeFilterOptions();
@@ -351,18 +356,38 @@ class AnalysioloTest {
     tf.opt.date = null;
     tf.opt.period = java.util.List.of(LocalDate.now().toString());
     stocks = java.util.List.of("TSLA", "VTI");
-    assertEquals(currPrices, resultPrices(tf, stocks).map(List::head));
+    Result<List<Tuple<BigDecimal, BigDecimal>>> combinedPrices =
+        resultPrices(tf, stocks).map(List::head)
+                                .flatMap(resP -> currPrices.map(resP::zip));
+    Result<Boolean> withinMargin = combinedPrices
+        .map(lT -> lT
+            .map(t -> withinOnePercent(t._1, t._2))
+            .reduce(Boolean::logicalAnd));
+    withinMargin.forEach(Assertions::assertTrue);
 
-    List<List<BigDecimal>> expPrices;
+
     tf.opt.period = java.util.List.of(dateStr1);
-    expPrices = List.of(List.of(new BigDecimal("390.666656"), new BigDecimal("238.830002")),
+    Result<List<List<BigDecimal>>> resPrices1 = resultPrices(tf, stocks);
+    List<List<BigDecimal>> expPrices1 = List.of(
+        List.of(new BigDecimal("390.666656"), new BigDecimal("238.830002")),
         currPrices.getOrThrow());
-    assertEquals(Result.success(expPrices), resultPrices(tf, stocks));
+
+    Result<List<List<Tuple<BigDecimal, BigDecimal>>>> combinedData = resPrices1.map(resP -> List
+        .zip(expPrices1, resP).map(outerT -> List
+            .zip(outerT._1, outerT._2)));
+
+    withinMargin = combinedData.map(outerL -> outerL
+        .map(innerL -> innerL
+            .map(pricesT -> withinOnePercent(pricesT._1, pricesT._2))
+            .reduce(Boolean::logicalAnd))
+        .reduce(Boolean::logicalAnd));
+    withinMargin.forEach(Assertions::assertTrue);
 
     tf.opt.period = java.util.List.of(dateStr1, dateStr2);
-    expPrices = List.of(List.of(new BigDecimal("390.666656"), new BigDecimal("238.830002")),
+    List<List<BigDecimal>> expPrices2 = List.of(
+        List.of(new BigDecimal("390.666656"), new BigDecimal("238.830002")),
         List.of(new BigDecimal("214.979996"), new BigDecimal("188.339996")));
-    assertEquals(Result.success(expPrices), resultPrices(tf, stocks));
+    assertEquals(Result.success(expPrices2), resultPrices(tf, stocks));
   }
 
   @Test
