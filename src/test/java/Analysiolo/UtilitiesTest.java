@@ -8,8 +8,10 @@ import Analysiolo.Analysiolo.TimeFilter;
 import Analysiolo.Analysiolo.TimeFilter.ExclusiveTFOptions;
 import functionalUtilities.List;
 import functionalUtilities.Result;
+import functionalUtilities.Tuple;
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
@@ -72,6 +74,7 @@ class UtilitiesTest {
 //  -d demo.db --period inception 2021-10-10 (from- to end-date)
 
     Analysiolo.TimeFilter tf = new Analysiolo.TimeFilter();
+    tf.opt = new Analysiolo.TimeFilter.ExclusiveTFOptions();
     tf.opt.date = null;
     tf.opt.period = List.of("now");
     Function<LocalDate, Boolean> comp = date -> Utilities.timePeriodComparator(tf)
@@ -250,35 +253,25 @@ class UtilitiesTest {
     assertFailure(err);
   }
 
-  List<String> getHeader() {
-    return List.of("(0,0)hd", "(0,2)header", "(0,3)hdFull", "(0,4)blah", "(0,5)testi",
-        "(0,6)nopeaf", "(0,7)");
+  private List<String> getHeader() {
+    return List.of("(0,0)hd", "(0,1)header", "(0,2)hdFull", "(0,3)blah", "(0,4)testi",
+        "(0,5)nopeaf", "(0,6)");
   }
 
-  List<List<String>> getTable() {
-    List<String> row1 = List.of("(1,1)", "(1,2)", "(1,3)", "(1,4)", "(1,5)", "(1,6)", "(1,7)");
-    List<String> row2 = List.of("(2,1)", "(2,2)", "(2,3)", "(2,4)", "(2,5)", "(2,6)");
-    List<String> row3 = List.of("(3,1)", "(3,2)", "(3,3)", "(3,4)", "(3,5)", "(3,6)", "(3,7)");
-    List<String> row4 = List.of("(4,1)", "(4,2)", "(4,3)", "(4,4)", "(4,5)", "(4,6)", "(4,7)");
-    List<String> row5 = List.of("(5,1)", "(5,2)", "(5,3)", "(5,4)", "(5,5)", "(5,6)", "(5,7)");
-    List<String> row6 = List.of("(6,1)", "(6,2)", "(6,3)", "(6,4)", "(6,5)", "(6,6)", "(6,7)");
+  private List<List<String>> getTable() {
+    List<String> row1 = List.of("(1,0)", "(1,1)", "(1,2)", "(1,3)", "(1,4)", "(1,5)", "(1,6)");
+    List<String> row2 = List.of("(2,0)", "(2,1)", "(2,2)", "(2,3)", "(2,4)", "(2,5)");
+    List<String> row3 = List.of("(3,0)", "(3,1)", "(3,2)", "(3,3)", "(3,4)", "(3,5)", "(3,6)");
+    List<String> row4 = List.of("(4,0)", "(4,1)", "(4,2)", "(4,3)", "(4,4)", "(4,5)", "(4,6)");
+    List<String> row5 = List.of("(5,0)", "(5,1)", "(5,2)", "(5,3)", "(5,4)", "(5,5)", "(5,6)");
+    List<String> row6 = List.of("(6,0)", "(6,1)", "(6,2)", "(6,3)", "(6,4)", "(6,5)", "(6,6)");
     return List.of(row1, row2, row3, row4, row5, row6);
-  }
-
-  @Test
-  void convertToArrayTest() {
-    List<List<String>> table = getTable();
-    String[][] res = Utilities.convertToArray(table);
-    int length = res[0].length;
-    for (int row = 1; row < res.length; row++)
-      assertEquals(length, res[row].length);
-    assertEquals("(6,7)", res[5][6]);
   }
 
   @Test
   void padDataTest() {
     List<List<String>> table = getTable().prepend(getHeader());
-    String[][] padded = Utilities.padData(Utilities.convertToArray(table));
+    String[][] padded = Utilities.padCells(table).map(List::toArray).toArray();
     List<String> currHd = table.head();
     for (int col = 0; col < table.head().size(); col++) {
       assertEquals(currHd.head().length(), padded[0][col].length());
@@ -288,8 +281,60 @@ class UtilitiesTest {
 
   @Test
   void renderTableTest() {
-//    List<List<String>> table = getTable().prepend(getHeader());
-    String r = Utilities.renderTable(getTable(), getHeader(), "+");
+    List<List<String>> table = getTable().prepend(getHeader());
+    String r = Utilities.renderTable(Utilities.padCells(table));
     System.out.println(r);
+  }
+
+  @Test
+  void addChangeMetricsTest() {
+    BigDecimal origPrice = new BigDecimal("80.000");
+    BigDecimal newPrice = new BigDecimal("100.000");
+    List<BigDecimal> expRes = List.of(origPrice, newPrice,
+        new BigDecimal("20"), new BigDecimal("25"));
+    expRes.zip(Utilities.addChangeMetrics(List.of(origPrice, newPrice)))
+        .forEach(t -> assertTrue(t._1.compareTo(t._2) == 0));
+  }
+
+  @Test
+  void formatDataTest() {
+    String symStr1 = "TSLA";
+    String symStr2 = "VTI";
+    Symbol symbol1 = Symbol.symbol(symStr1);
+    Symbol symbol2 = Symbol.symbol(symStr2);
+    String dateStr1 = "2021-01-01";
+    String dateStr2 = "2022-01-01";
+    LocalDate date1 = LocalDate.parse(dateStr1);
+    LocalDate date2 = LocalDate.parse(dateStr2);
+    List<BigDecimal> prices1 = List.of(new BigDecimal("800"), new BigDecimal("1000"))
+                                   .map(num -> num.setScale(6, RoundingMode.HALF_UP));
+    List<BigDecimal> prices2 = List.of(new BigDecimal("35"), new BigDecimal("50"))
+                                   .map(num -> num.setScale(6, RoundingMode.HALF_UP));
+
+    var entry1 = new Tuple<>(date1, List.of(
+        new Tuple<>(symbol1, prices1.head()),
+        new Tuple<>(symbol2, prices2.head())));
+    var entry2 = new Tuple<>(date2, List.of(
+        new Tuple<>(symbol1, prices1.tail().head()),
+        new Tuple<>(symbol2, prices2.tail().head())));
+
+    // Expected Data
+    var header = List.of("Ticker", dateStr1, dateStr2, "𝝙", "𝝙 (%)");
+    List<String> data1 = List.of(symStr1,
+        bg2Str(prices1.get(0)),
+        bg2Str(prices1.get(1)),
+        bg2Str(new BigDecimal("200")),
+        bg2Str(new BigDecimal("25")));
+    List<String> data2 = List.of(symStr2,
+        bg2Str(prices2.get(0)),
+        bg2Str(prices2.get(1)),
+        bg2Str(new BigDecimal("15")),
+        bg2Str(new BigDecimal("42.857")));
+
+    assertEquals(List.of(header, data1, data2),
+        Utilities.formatDataWithHeader(List.of(entry1, entry2)));
+  }
+  private String bg2Str(BigDecimal bg) {
+    return String.format("%.3f", bg);
   }
 }

@@ -5,11 +5,15 @@ import static Analysiolo.Analysiolo.TimeFilter;
 import Analysiolo.Analysiolo.DB;
 import functionalUtilities.FileReader;
 import functionalUtilities.List;
+import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Stream;
 import functionalUtilities.Tuple;
+import functionalUtilities.Tuple3;
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -197,20 +201,57 @@ final class Utilities {
         return Utilities.prettifyList(Utilities.parseTimeFilter(tf));
     }
 
-    static String renderTable(List<List<String>> data, List<String> header) {
-        return renderTable(data, header, "-");
+    static List<List<String>> formatDataWithHeader(List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>> data) {
+        List<LocalDate> dates = data.map(Tuple::_1);
+        List<String> header = dates.size() >= 1
+            ? List.of("𝝙", "𝝙 (%)")
+            : List.list();
+        header = dates.foldRight(header, date -> hd -> hd.prepend(date.toString()));
+        header = header.prepend("Ticker");
+
+        // TODO data.stream()
+        List<Tuple3<Symbol, LocalDate, BigDecimal>> flattenedData =
+            data.foldLeft(List.list(), resList -> outerT ->
+                outerT._2.foldLeft(resList, innerResList -> innerT ->
+                    innerResList.prepend(new Tuple3<>(innerT._1, outerT._1, innerT._2))));
+
+        Map<Symbol, List<BigDecimal>> priceData =
+            flattenedData.groupBy(Tuple3::_1)
+                         .mapVal(lT3 -> lT3
+                             .sortFP(Comparator.comparing(Tuple3::_2))
+                             .map(Tuple3::_3));
+
+        if (dates.size() >= 1)
+            priceData = priceData.mapVal(Utilities::addChangeMetrics);
+
+        return priceData.toList(sym -> prices ->
+                            prices.map(bd -> String.format("%.3f", bd))
+                                  .prepend(sym.getSymbolStr()))
+                        .prepend(header);
     }
 
-    static String renderTable(List<List<String>> data, List<String> header, String separator) {
+    static List<BigDecimal> addChangeMetrics(List<BigDecimal> prices) {
+        BigDecimal origPrice = prices.get(0).setScale(6, RoundingMode.HALF_UP);
+        BigDecimal newPrice = prices.get(1).setScale(6, RoundingMode.HALF_UP);
+        BigDecimal abs = newPrice.subtract(origPrice);
+        BigDecimal percent = abs.divide(origPrice, RoundingMode.HALF_UP)
+                                .multiply(BigDecimal.valueOf(100));
+        return List.of(origPrice, newPrice, abs, percent);
+    }
+
+    static List<List<String>> addWithSeparator(final List<String> header, final List<List<String>> data) {
+        String separator = "-";
         List<String> rule = header.map(hd -> separator.repeat(hd.length()));
-        return renderTable(data.prepend(rule).prepend(header));
+        return data.prepend(rule).prepend(header);
     }
 
     static String renderTable(List<List<String>> data) {
-        String[][] paddedData = padData(convertToArray(data));
+        return renderTable(data.map(List::toArray).toArray());
+    }
 
+    static String renderTable(String[][] data) {
         StringBuilder s = new StringBuilder();
-        for (final String[] line : paddedData) {
+        for (final String[] line : data) {
             for (final String cell : line)
                 s.append(cell).append(" ");
             s.append("\n");
@@ -219,65 +260,27 @@ final class Utilities {
         return s.toString();
     }
 
-    static String[][] convertToArray(final List<List<String>> data) {
-        int width = data.map(List::size)
-            .foldLeft(0, max -> size -> max > size ? max : size);
-        return data.map(row -> row.toArrayPadded(width, "")).toArray();
-
-        /* procedural
-        List<List<String>> remainingData = data;
-        List<String> remainingRowData;
-        for (int rowIdx = 0; rowIdx < height; rowIdx++) {
-            remainingRowData = remainingData.head();
-            remainingData = remainingData.tail();
-
-            for (int colIdx = 0; colIdx < width; colIdx++) {
-                if (remainingRowData.isEmpty()) {
-                    r[colIdx][rowIdx] = "";
-                } else {
-                    r[colIdx][rowIdx] = remainingRowData.head();
-                    remainingRowData = remainingRowData.tail();
-                }
-            }
-        }
-         */
+    static List<List<String>> padCells(final List<List<String>> data) {
+    return padCells(data, true);
     }
 
-    static String[][] padData(final String[][] data) {
-        int height = data.length;
-        int width = data[0].length;
-        String[][] r = new String[height][width];
+    static List<List<String>> padCells(final List<List<String>> data, boolean rightJustified) {
+        int height = data.size();
+        int width = data.head().size();
+
+        Integer[][] strLen =
+            data.map(row -> row.map(String::length).toArrayPadded(width, 0)).toArray();
 
         int[] colMax = new int[width];
         Arrays.fill(colMax, 0);
+        Stream.from(0).take(width).forEach(col ->
+            Stream.from(0).take(height).forEach(row ->
+                colMax[col] = Math.max(strLen[row][col], colMax[col])));
 
-        for (int col = 0; col < width; col ++) {
-            for (String[] line : data)
-                colMax[col] = Math.max(line[col].length(), colMax[col]);
-
-            for (int row = 0; row < height; row++) {
-                String cell = data[row][col] == null ? "" : data[row][col];
-                int padding = colMax[col] - cell.length();
-                r[row][col] = cell + " ".repeat(padding);
-            }
-        }
-
-        /* using streams
-        String[][] r = new String[width][height];
-        Stream<Integer> columns = Stream.from(0).take(width);
-        Stream<Integer> rows = Stream.from(0).take(height);
-        columns.forEach(col -> rows
-            .map(row -> {
-                colMax[col] = Math.max(data[col][row].length(), colMax[col]);
-                return row;
-            })
-            .forEach(row -> {
-                String cell = data[col][row];
-                int padding = colMax[col] - cell.length();
-                r[col][row] = cell + " ".repeat(padding);
-            } ));
-        */
-
-        return r;
+        return data.map(row -> row
+            .mapWithIdx(colIdx -> cell -> {
+                String padding = " ".repeat(colMax[colIdx] - cell.length());
+                return rightJustified ? padding + cell : cell + padding;
+            }));
     }
 }
