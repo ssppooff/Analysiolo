@@ -337,4 +337,24 @@ class UtilitiesTest {
   private String bg2Str(BigDecimal bg) {
     return String.format("%.3f", bg);
   }
+
+  @Test
+  void themeTwoPricesWithDeltaTest() {
+    List<List<String>> data = List.of(
+        List.of("", "2021-10-10", "2022-10-10", "delta", "delta (%)"),
+        List.of("TSLA", "100.000", "200.000", "100.000", "1.00"),
+        List.of("VTI", "2000.000", "20.000", "-1980.000", "-0.49"));
+    var f= Utilities.themeTwoPricesWithDelta().apply(data);
+    System.out.println(Utilities.renderTable(f));
+  }
+
+  @Test
+  void themeOnePriceTest() {
+    List<List<String>> data = List.of(
+        List.of("", "2021-10-10"),
+        List.of("TSLA", "100.000"),
+        List.of("VTI", "2000.000"));
+    var f = Utilities.themeOnePrice().apply(data);
+    System.out.println(Utilities.renderTable(f));
+  }
 }
