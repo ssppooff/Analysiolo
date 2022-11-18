@@ -19,7 +19,7 @@ public abstract class Stream<T> {
     return f.apply(s).map(t -> cons(() -> t._1, () -> unfold(t._2, f))).getOrElse(empty());
   }
 
-  public Stream<T> repeat(T value) {
+  public static <T> Stream<T> repeat(T value) {
     return unfold(value, s -> Result.success(new Tuple<>(value, value)));
   }
 
@@ -28,7 +28,7 @@ public abstract class Stream<T> {
   }
 
   public List<T> toList() {
-    return foldRight(List.<T>list(), e -> acc -> acc.prepend(e));
+    return foldRight(List.list(), e -> acc -> acc.prepend(e));
   }
 
   public Stream<T> filter(Function<T, Boolean> p) {
@@ -87,9 +87,6 @@ public abstract class Stream<T> {
   }
 
   public <U> U foldLeft(U acc, Function<U, Function<T, U>> f) {
-//    return this.isEmpty()
-//        ? acc
-//        : tail().foldLeft(f.apply(acc).apply(head()), f);
     return foldLeft_(this, acc, f).eval();
   }
   public static <T, U> U foldLeft(Stream<T> stream, U acc, Function<U, Function<T, U>> f) {
@@ -226,6 +223,7 @@ public abstract class Stream<T> {
     return res;
   }
 
+  @SuppressWarnings({"SimplifiableConditionalExpression", "Convert2MethodRef"})
   @Override
   public boolean equals(Object obj) {
     if ( !(obj instanceof Stream<?> that) )
