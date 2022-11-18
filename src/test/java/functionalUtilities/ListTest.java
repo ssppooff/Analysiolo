@@ -165,4 +165,18 @@ class ListTest {
     String[] expStr = new String[]{"one", "two", "three", "four", "x", "x", "x"};
     assertArrayEquals(expStr, lstr.toArrayPadded(7, "x"));
   }
+
+  @Test
+  void insertTest() {
+    String testStr = "inserted";
+    List<String> l = List.of("one", "two", "three", "four");
+    List<String> expL = List.of("one", "two", testStr, "three", "four");
+    assertEquals(expL, l.insert(2, testStr));
+
+    expL = List.of( "one", testStr, "two", "three", "four");
+    assertEquals(expL, l.insert(1, testStr));
+
+    expL = List.of(testStr, "one", "two", "three", "four");
+    assertEquals(expL, l.insert(0, testStr));
+  }
 }
