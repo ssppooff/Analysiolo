@@ -21,8 +21,12 @@ import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /* TODO:
-    - change name: portfolio + analysis = analysiolio
-    - print parsed options before continuing with computation
+    - output/rendering
+        - refactor into applyTheme(data, theme) & Utilities.basicTheme()/themeWithDelta -> Func
+        - create basic theme for data w/ 1 price & themeWithDelta for 2 prices
+        - add '->' vertical line to themeWithDelta
+    - Input validation
+    - implement dry-run
 
 # CLI call options
 * Example: Create a new database and add some transactions
@@ -169,21 +173,6 @@ public class Analysiolo implements Callable<Integer> {
             .forEachOrFail(l -> l.forEach(System.out::println))
             .forEach(System.out::println);
         return 1;
-
-        /* TODO: Output
-        * if Show the transactions according to the time filter
-        * else if dry-run
-        *   output msg for db
-        *   output msg for ingesting
-        *   output msg for period/date filter
-        *   output msg for stock-ticker filter
-
-        if (db.opt.newDBPath != null)
-            System.out.println("Creating a new database at: " + dbFullPath.getCanonicalPath());
-        else
-            System.out.println("Using database at: " + dbFullPath);
-        System.out.println("Ingesting transactions from file " + path);
-         */
     }
 
     // price (date, period): (needs stock filter) date -> price of stock on specific date (make
@@ -204,7 +193,6 @@ public class Analysiolo implements Callable<Integer> {
 
     @Command(name = "price")
     int price(@Mixin DB db, @Mixin TimeFilter tf) {
-        // TODO: Input validation
         /*
         if (db.opt != null)
             System.out.println("Database ignored with command price");
@@ -228,27 +216,16 @@ public class Analysiolo implements Callable<Integer> {
         {
          */
 
-        /* TODO for ouput/rendering
-         * - refactor into applyTheme(data, theme) & Utilities.basicTheme()/themeWithDelta -> Func
-         * - create basic theme for data w/ 1 price & themeWithDelta for 2 prices
-         * - add '->' vertical line to themeWithDelta
-         */
-        Result<List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>>>
-            prices = price_(tf, stockFilter);
-        var output = prices
-            .map(Utilities::formatDataWithHeader)
-            .map(Utilities::padCells)
-            .map(data -> Utilities.addWithSeparator(data.head(), data.tail()))
+        Result<String> output = price_(tf, stockFilter)
+            .map(Utilities::processData)
+            .map(t -> t._1.size() == 1
+                ? Utilities.applyTheme(t, Utilities.themeOnePrice())
+                : Utilities.applyTheme(t, Utilities.themeTwoPricesWithDelta()))
             .map(Utilities::renderTable);
         System.out.println();
         output.forEach(System.out::println);
         System.out.println();
 
-        output.failIfEmpty("Result empty")
-              .forEachOrFail(System.out::println)
-              .forEach(fail -> System.out.println("Something went wrong: " + fail));
-
-        /* TODO: Output if dry-run */
         return 1;
     }
 
@@ -273,28 +250,6 @@ public class Analysiolo implements Callable<Integer> {
     int value(@Mixin DB db, @Mixin TimeFilter tf) {
         Result<List<Tuple<LocalDate, BigDecimal>>> res = value_(db, tf, stockFilter, txFile);
 
-        /* TODO: Output
-        * if dry-run
-        *   output msg for db
-        *   output msg for ingesting
-        *   output msg for period/date filter
-        *   output msg for stock-ticker filter
-        if (tf != null)
-            System.out.println(Utilities.msgTimeFilter(tf, true));
-
-
-        List<Symbol> symFilter = Utilities.parseStockFilter(stockFilter);
-        if (!symFilter.isEmpty())
-            System.out.println(
-                "Only considering transactions from the following stocks: "
-                    + Utilities.prettifyList(symFilter));
-         */
-
-        // TODO: * better output with delta!
-        res.failIfEmpty("No transactions provided")
-            .forEachOrFail(l -> l
-                .forEach(t -> System.out.println("Value on " + t._1 + ": " + t._2)))
-            .forEach(failure -> System.out.println("Error: " + failure));
         return 1;
     }
 

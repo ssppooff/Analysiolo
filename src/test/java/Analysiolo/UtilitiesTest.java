@@ -293,9 +293,10 @@ class UtilitiesTest {
     List<BigDecimal> expRes = List.of(origPrice, newPrice,
         new BigDecimal("20"), new BigDecimal("25"));
     expRes.zip(Utilities.addChangeMetrics(List.of(origPrice, newPrice)))
-        .forEach(t -> assertTrue(t._1.compareTo(t._2) == 0));
+        .forEach(t -> assertEquals(0, t._1.compareTo(t._2)));
   }
 
+  // TODO processDataTest()
   @Test
   void formatDataTest() {
     String symStr1 = "TSLA";

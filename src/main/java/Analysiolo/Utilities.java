@@ -342,7 +342,7 @@ final class Utilities {
                              .sortFP(Comparator.comparing(Tuple3::_2))
                              .map(Tuple3::_3));
 
-        if (dates.size() >= 1)
+        if (dates.size() >= 2)
             priceData = priceData.mapVal(Utilities::addChangeMetrics);
 
         return new Tuple<>(dates, priceData);
@@ -356,7 +356,6 @@ final class Utilities {
         header = dates.foldRight(header, date -> hd -> hd.prepend(date.toString()));
         header = header.prepend("Ticker");
 
-        // TODO data.stream()
         List<Tuple3<Symbol, LocalDate, BigDecimal>> flattenedData =
             data.foldLeft(List.list(), resList -> outerT ->
                 outerT._2.foldLeft(resList, innerResList -> innerT ->
