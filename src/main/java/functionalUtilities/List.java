@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.ListIterator;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.StreamSupport;
 
 @SuppressWarnings("unused")
 public abstract class List<E> extends AbstractSequentialList<E> {
@@ -64,11 +65,11 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     });
   }
 
-  public E reduce(E identity, BiFunction<E, E, E> f) {
+  public <T> T reduce(T identity, BiFunction<T, E, T> f) {
     return reduce(identity, x -> y -> f.apply(x, y));
   }
 
-  public E reduce(E identity, Function<E, Function<E, E>> f) {
+  public <T> T reduce(T identity, Function<T, Function<E, T>> f) {
     return foldLeft(identity, acc -> e -> f.apply(acc).apply(e));
   }
 
@@ -130,6 +131,15 @@ public abstract class List<E> extends AbstractSequentialList<E> {
 
   public static <E> List<E> concat(List<E> l1, List<E> l2) {
     return l1.reverse().foldLeft(l2, acc -> acc::prepend);
+  }
+
+  public List<E> insert(int idx, E value) {
+    return insert_(list(), this, value, idx).eval();
+  }
+  private TailCall<List<E>> insert_(List<E> acc, List<E> l, E cell, int count) {
+    return count <= 0
+        ? TailCall.ret(acc.foldLeft(l.prepend(cell), list -> list::prepend))
+        : TailCall.suspend(() -> insert_(acc.prepend(l.head()), l.tail(), cell, count - 1));
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
@@ -201,8 +211,8 @@ public abstract class List<E> extends AbstractSequentialList<E> {
             ? TailCall.ret(Result.success(l))
             : TailCall.suspend(() -> getAt_(l.tail(), i - 1));
   }
+
   public Stream<E> fpStream() {
-    // TODO
     return Stream.unfold(this, l ->
         l.isEmpty()
             ? Result.empty()
@@ -228,6 +238,13 @@ public abstract class List<E> extends AbstractSequentialList<E> {
   }
   public static <E, T> List<Tuple<E, T>> zip(List<E> l1, List<T> l2) {
     return zipWith(l1, l2, h1 -> h2 -> new Tuple<>(h1, h2));
+  }
+
+  public <T, U> List<U> zipWith(List<T> l, BiFunction<E, T, U> f) {
+    return zipWith(this, l, f);
+  }
+  public static <E, T, U> List<U> zipWith(List<E> l1, List<T> l2, BiFunction<E, T, U> f) {
+    return zipWith(l1, l2, e -> t -> f.apply(e, t));
   }
 
   public <T, U> List<U> zipWith(List<T> l, Function<E, Function<T, U>> f) {
