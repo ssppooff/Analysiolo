@@ -269,23 +269,23 @@ class UtilitiesTest {
     return List.of(row1, row2, row3, row4, row5, row6);
   }
 
-  @Test
-  void padDataTest() {
-    List<List<String>> table = getTable().prepend(getHeader());
-    String[][] padded = Utilities.padCells(table).map(List::toArray).toArray();
-    List<String> currHd = table.head();
-    for (int col = 0; col < table.head().size(); col++) {
-      assertEquals(currHd.head().length(), padded[0][col].length());
-      currHd = currHd.tail();
-    }
-  }
+//  @Test
+//  void padDataTest() {
+//    List<List<String>> table = getTable().prepend(getHeader());
+//    String[][] padded = Utilities.padCells(table).map(List::toArray).toArray();
+//    List<String> currHd = table.head();
+//    for (int col = 0; col < table.head().size(); col++) {
+//      assertEquals(currHd.head().length(), padded[0][col].length());
+//      currHd = currHd.tail();
+//    }
+//  }
 
-  @Test
-  void renderTableTest() {
-    List<List<String>> table = getTable().prepend(getHeader());
-    String r = Utilities.renderTable(Utilities.padCells(table));
-    System.out.println(r);
-  }
+//  @Test
+//  void renderTableTest() {
+//    List<List<String>> table = getTable().prepend(getHeader());
+//    String r = Utilities.renderTable(Utilities.padCells(table));
+//    System.out.println(r);
+//  }
 
   @Test
   void addChangeMetricsTest() {
@@ -324,48 +324,6 @@ class UtilitiesTest {
         new Tuple<>(List.of(date1, date2), m.put(symbol1, prices1).put(symbol2, prices2));
 
     assertEquals(exp, Utilities.changeFormat(List.of(entry1, entry2)));
-  }
-
-  @Test
-  void formatDataTest() {
-    String symStr1 = "TSLA";
-    String symStr2 = "VTI";
-    Symbol symbol1 = Symbol.symbol(symStr1);
-    Symbol symbol2 = Symbol.symbol(symStr2);
-    String dateStr1 = "2021-01-01";
-    String dateStr2 = "2022-01-01";
-    LocalDate date1 = LocalDate.parse(dateStr1);
-    LocalDate date2 = LocalDate.parse(dateStr2);
-    List<BigDecimal> prices1 = List.of(new BigDecimal("800"), new BigDecimal("1000"))
-                                   .map(num -> num.setScale(6, RoundingMode.HALF_UP));
-    List<BigDecimal> prices2 = List.of(new BigDecimal("35"), new BigDecimal("50"))
-                                   .map(num -> num.setScale(6, RoundingMode.HALF_UP));
-
-    var entry1 = new Tuple<>(date1, List.of(
-        new Tuple<>(symbol1, prices1.head()),
-        new Tuple<>(symbol2, prices2.head())));
-    var entry2 = new Tuple<>(date2, List.of(
-        new Tuple<>(symbol1, prices1.tail().head()),
-        new Tuple<>(symbol2, prices2.tail().head())));
-
-    // Expected Data
-    var header = List.of("Ticker", dateStr1, dateStr2, "𝝙", "𝝙 (%)");
-    List<String> data1 = List.of(symStr1,
-        bg2Str(prices1.get(0)),
-        bg2Str(prices1.get(1)),
-        bg2Str(new BigDecimal("200")),
-        bg2Str(new BigDecimal("25")));
-    List<String> data2 = List.of(symStr2,
-        bg2Str(prices2.get(0)),
-        bg2Str(prices2.get(1)),
-        bg2Str(new BigDecimal("15")),
-        bg2Str(new BigDecimal("42.857")));
-
-    assertEquals(List.of(header, data1, data2),
-        Utilities.formatDataWithHeader(List.of(entry1, entry2)));
-  }
-  private String bg2Str(BigDecimal bg) {
-    return String.format("%.3f", bg);
   }
 
   @Test
