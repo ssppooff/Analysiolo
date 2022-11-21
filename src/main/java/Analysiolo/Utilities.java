@@ -62,17 +62,6 @@ final class Utilities {
         }
     }
 
-    static <E> String prettifyList(java.util.List<E> l) {
-        StringBuilder s = new StringBuilder();
-        for (E e : l)
-            s.append(e).append(", ");
-
-        return l.isEmpty()
-            ? ""
-            : s.substring(0, s.length() - 2);
-
-    }
-
     static Result<DataSource> parseDbOption(DB db) {
         if (db == null || db.opt == null)
             return Result.failure("No path to database given, exiting");
@@ -217,12 +206,6 @@ final class Utilities {
         }
     }
 
-    static String msgTimeFilter(TimeFilter tf, boolean tx) {
-        String word = tx ? "transactions" : "prices";
-        System.out.print("Only considering " + word + " between/on date: ");
-        return Utilities.prettifyList(Utilities.parseTimeFilter(tf));
-    }
-
     static List<List<String>> applyTheme(Tuple<List<LocalDate>, Map<Symbol, List<BigDecimal>>> data,
         Function<List<List<String>>, List<List<String>>> theme) {
         List<String> header = List.list();
@@ -345,34 +328,6 @@ final class Utilities {
         return new Tuple<>(dates, priceData);
     }
 
-    static List<List<String>> formatDataWithHeader(List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>> data) {
-        List<LocalDate> dates = data.map(Tuple::_1);
-        List<String> header = dates.size() >= 1
-            ? List.of("𝝙", "𝝙 (%)")
-            : List.list();
-        header = dates.foldRight(header, date -> hd -> hd.prepend(date.toString()));
-        header = header.prepend("Ticker");
-
-        List<Tuple3<Symbol, LocalDate, BigDecimal>> flattenedData =
-            data.foldLeft(List.list(), resList -> outerT ->
-                outerT._2.foldLeft(resList, innerResList -> innerT ->
-                    innerResList.prepend(new Tuple3<>(innerT._1, outerT._1, innerT._2))));
-
-        Map<Symbol, List<BigDecimal>> priceData =
-            flattenedData.groupBy(Tuple3::_1)
-                         .mapVal(lT3 -> lT3
-                             .sortFP(Comparator.comparing(Tuple3::_2))
-                             .map(Tuple3::_3));
-
-        if (dates.size() >= 1)
-            priceData = priceData.mapVal(Utilities::addChangeMetrics);
-
-        return priceData.toList(sym -> prices ->
-                            prices.map(bd -> String.format("%.3f", bd))
-                                  .prepend(sym.getSymbolStr()))
-                        .prepend(header);
-    }
-
     static List<BigDecimal> addChangeMetrics(List<BigDecimal> prices) {
         BigDecimal origPrice = prices.get(0).setScale(6, RoundingMode.HALF_UP);
         BigDecimal newPrice = prices.get(1).setScale(6, RoundingMode.HALF_UP);
@@ -383,41 +338,9 @@ final class Utilities {
     }
 
     static String renderTable(List<List<String>> data) {
-        return renderTable(data.map(List::toArray).toArray());
-    }
-
-    static String renderTable(String[][] data) {
-        StringBuilder s = new StringBuilder();
-        for (final String[] line : data) {
-            for (final String cell : line)
-                s.append(cell).append(" ");
-            s.append("\n");
-        }
-
-        return s.toString();
-    }
-
-    static List<List<String>> padCells(final List<List<String>> data) {
-        return padCells(data, true);
-    }
-
-    static List<List<String>> padCells(final List<List<String>> data, boolean rightJustified) {
-        int height = data.size();
-        int width = data.head().size();
-
-        Integer[][] strLen =
-            data.map(row -> row.map(String::length).toArrayPadded(width, 0)).toArray();
-
-        int[] colMax = new int[width];
-        Arrays.fill(colMax, 0);
-        Stream.from(0).take(width).forEach(col ->
-            Stream.from(0).take(height).forEach(row ->
-                colMax[col] = Math.max(strLen[row][col], colMax[col])));
-
-        return data.map(row -> row
-            .mapWithIdx(colIdx -> cell -> {
-                String padding = " ".repeat(colMax[colIdx] - cell.length());
-                return rightJustified ? padding + cell : cell + padding;
-            }));
+        return data.reduce(" ", outerStr -> row ->
+            outerStr
+                + row.reduce(" ", innerStr -> el -> innerStr + el + " ")
+                + "\n");
     }
 }
