@@ -7,6 +7,7 @@ import Analysiolo.Analysiolo.DB.ExclusiveOptions;
 import Analysiolo.Analysiolo.TimeFilter;
 import Analysiolo.Analysiolo.TimeFilter.ExclusiveTFOptions;
 import functionalUtilities.List;
+import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
 import java.io.File;
@@ -296,7 +297,35 @@ class UtilitiesTest {
         .forEach(t -> assertEquals(0, t._1.compareTo(t._2)));
   }
 
-  // TODO processDataTest()
+  @Test
+  void changeFormatTest() {
+    String symStr1 = "TSLA";
+    String symStr2 = "VTI";
+    Symbol symbol1 = Symbol.symbol(symStr1);
+    Symbol symbol2 = Symbol.symbol(symStr2);
+    String dateStr1 = "2021-01-01";
+    String dateStr2 = "2022-01-01";
+    LocalDate date1 = LocalDate.parse(dateStr1);
+    LocalDate date2 = LocalDate.parse(dateStr2);
+    List<BigDecimal> prices1 = List.of(new BigDecimal("800"), new BigDecimal("1000"))
+                                   .map(num -> num.setScale(6, RoundingMode.HALF_UP));
+    List<BigDecimal> prices2 = List.of(new BigDecimal("35"), new BigDecimal("50"))
+                                   .map(num -> num.setScale(6, RoundingMode.HALF_UP));
+
+    var entry1 = new Tuple<>(date1, List.of(
+        new Tuple<>(symbol1, prices1.head()),
+        new Tuple<>(symbol2, prices2.head())));
+    var entry2 = new Tuple<>(date2, List.of(
+        new Tuple<>(symbol1, prices1.tail().head()),
+        new Tuple<>(symbol2, prices2.tail().head())));
+
+    Map<Symbol, List<BigDecimal>> m = Map.empty();
+    Tuple<List<LocalDate>, Map<Symbol, List<BigDecimal>>> exp =
+        new Tuple<>(List.of(date1, date2), m.put(symbol1, prices1).put(symbol2, prices2));
+
+    assertEquals(exp, Utilities.changeFormat(List.of(entry1, entry2)));
+  }
+
   @Test
   void formatDataTest() {
     String symStr1 = "TSLA";

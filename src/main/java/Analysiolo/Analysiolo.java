@@ -217,10 +217,12 @@ public class Analysiolo implements Callable<Integer> {
          */
 
         Result<String> output = price_(tf, stockFilter)
-            .map(Utilities::processData)
-            .map(t -> t._1.size() == 1
-                ? Utilities.applyTheme(t, Utilities.themeOnePrice())
-                : Utilities.applyTheme(t, Utilities.themeTwoPricesWithDelta()))
+            .map(Utilities::changeFormat)
+            .map(t -> t._1.size() >= 2
+                ? Utilities.applyTheme(
+                    t.mapLeft(m -> m.mapVal(Utilities::addChangeMetrics)),
+                    Utilities.themeTwoPricesWithDelta())
+                : Utilities.applyTheme(t, Utilities.themeOnePrice()))
             .map(Utilities::renderTable);
         System.out.println();
         output.forEach(System.out::println);

@@ -326,7 +326,7 @@ final class Utilities {
                                             .reduce(row1 -> row2 -> row1.zipWith(row2, Math::max));
     }
 
-    static Tuple<List<LocalDate>, Map<Symbol, List<BigDecimal>>> processData(
+    static Tuple<List<LocalDate>, Map<Symbol, List<BigDecimal>>> changeFormat(
         List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>> data) {
         List<LocalDate> dates = data.map(Tuple::_1);
 
@@ -341,9 +341,6 @@ final class Utilities {
                          .mapVal(lT3 -> lT3
                              .sortFP(Comparator.comparing(Tuple3::_2))
                              .map(Tuple3::_3));
-
-        if (dates.size() >= 2)
-            priceData = priceData.mapVal(Utilities::addChangeMetrics);
 
         return new Tuple<>(dates, priceData);
     }
