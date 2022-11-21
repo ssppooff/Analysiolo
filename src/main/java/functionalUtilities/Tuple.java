@@ -1,5 +1,7 @@
 package functionalUtilities;
 
+import java.util.function.Function;
+
 public class Tuple<A, B> {
   public A _1;
   public B _2;
@@ -27,6 +29,14 @@ public class Tuple<A, B> {
 
   public static <A, B> Result<Tuple<A, B>> flattenResultRight(Tuple<A, Result<B>> t) {
     return t._2.map(b -> new Tuple<>(t._1, b));
+  }
+
+  public <C> Tuple<C, B> mapLeft(Function<A, C> f) {
+    return new Tuple<>(f.apply(_1), _2);
+  }
+
+  public <C> Tuple<A, C> mapRight(Function<B, C> f) {
+    return new Tuple<>(_1, f.apply(_2));
   }
 
   @Override
