@@ -6,6 +6,7 @@ import functionalUtilities.Tuple;
 import java.io.File;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.concurrent.Callable;
 import picocli.CommandLine;
 import picocli.CommandLine.ArgGroup;
@@ -154,7 +155,7 @@ public class Analysiolo implements Callable<Integer> {
     static Result<List<Transaction>> list_(DB db, TimeFilter tf,
                                           java.util.List<String> symbols, File txFile) {
         // Check for db, read & check additional transactions, ingest into ds
-        // Then filter transactions according to symbols and timefilter
+        // Then filter transactions according to symbols and time filter
         return prepTransactions(db, txFile)
             .map(txs -> txs.filter(Utilities.symbolComparator(symbols)))
             .map(txs -> txs.filter(Utilities.timePeriodComparator(tf)))
@@ -175,9 +176,6 @@ public class Analysiolo implements Callable<Integer> {
         return 1;
     }
 
-    // price (date, period): (needs stock filter) date -> price of stock on specific date (make
-    //   sure it is today or before) if today print current price, period -> price of stock on both
-    //   dates + delta, nothing ->  current price
     static Result<List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>>>
         price_(TimeFilter tf, java.util.List<String> symbols) {
             return List.flattenResult(Utilities
@@ -193,42 +191,84 @@ public class Analysiolo implements Callable<Integer> {
 
     @Command(name = "price")
     int price(@Mixin DB db, @Mixin TimeFilter tf) {
-        /*
-        if (db.opt != null)
-            System.out.println("Database ignored with command price");
 
-        if (tf != null) {
-            if (tf.opt == null) {
-                System.out.println("Either a --date or --period must be given");
-                return -1;
-            }
-
-            if (tf.opt.period != null && tf.opt.period.get(0).equals("inception")) {
-                System.out.println("Option --period inception not supported with command price");
-                return -1;
-            }
-            System.out.println(Utilities.msgTimeFilter(tf, false));
-        }
-
+        // Input validation
         if (stockFilter == null || stockFilter.isEmpty()) {
             System.out.println("At least one ticker symbol must be given");
             return -1;
-        {
-         */
+        }
+        if (tf != null && tf.opt != null) {
+            if (tf.opt.date != null && tf.opt.date.isAfter(LocalDate.now())) {
+                System.out.println("--date cannot be in the future");
+                return -1;
+            }
 
-        Result<String> output = price_(tf, stockFilter)
-            .map(Utilities::changeFormat)
-            .map(t -> t._1.size() >= 2
-                ? Utilities.applyTheme(
+            if (tf.opt.period != null) {
+                if (tf.opt.period.get(0).equals("inception")) {
+                    System.out.println("--period inception not supported with command price");
+                    return -1;
+                }
+                if (tf.opt.period.size() == 2) {
+                    try {
+                        LocalDate d = LocalDate.parse(tf.opt.period.get(1));
+                        if (d.isAfter(LocalDate.now())) {
+                            System.out.println("--period cannot include the future");
+                            return -1;
+                        }
+                    } catch (DateTimeParseException ignore) {
+                    }
+                }
+            }
+        }
+
+        if (db.opt != null)
+            System.out.println("Database ignored with command price");
+
+        if (txFile != null)
+            System.out.println("Transactions ignored with command price");
+
+        if (dryRun) {
+            List<LocalDate> dates = Utilities.parseTimeFilter(tf);
+            StringBuilder s = new StringBuilder();
+            s.append("Getting prices for ")
+             .append(renderStockList(stockFilter))
+             .append(" for date(s) ")
+             .append(dates.get(0));
+
+            if (dates.size() == 2)
+                s.append(", and ").append(dates.get(1))
+                 .append("\n")
+                 .append("Adding change metrics");
+
+            s.append("\n")
+             .append("Outputting table");
+            System.out.println(s);
+            return 0;
+        } else {
+            Result<String> output = price_(tf, stockFilter)
+                .map(Utilities::changeFormat)
+                .map(t -> t._1.size() >= 2
+                    ? Utilities.applyTheme(
                     t.mapLeft(m -> m.mapVal(Utilities::addChangeMetrics)),
                     Utilities.themeTwoPricesWithDelta())
-                : Utilities.applyTheme(t, Utilities.themeOnePrice()))
-            .map(Utilities::renderTable);
-        System.out.println();
-        output.forEach(System.out::println);
-        System.out.println();
+                    : Utilities.applyTheme(t, Utilities.themeOnePrice()))
+                .map(Utilities::renderTable);
+            output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
+                + " " + err));
+            return output.isFailure() ? -1 : 0;
+        }
+    }
 
-        return 1;
+    static String renderStockList(java.util.List<String> stockFilter) {
+        if (stockFilter.size() == 1)
+            return stockFilter.get(0);
+
+        StringBuilder s = new StringBuilder();
+        s.append(stockFilter.get(0));
+        for (int i = 1; i < stockFilter.size() -1; i++)
+            s.append(", ").append(stockFilter.get(i));
+
+        return s.append(", and ").append(stockFilter.get(stockFilter.size() - 1)).toString();
     }
 
     static Result<List<Tuple<LocalDate, BigDecimal>>> value_(DB db, TimeFilter tf, java.util.List<String> symbols, File txFile) {
