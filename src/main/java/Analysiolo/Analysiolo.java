@@ -383,16 +383,66 @@ public class Analysiolo implements Callable<Integer> {
         }
     }
 
+    static Result<BigDecimal> avgCost_(DB db, File txFile) {
+        var f = prepTransactions(db, txFile);
+        // - avgCost (date, period): avgCost for each stock over filtered transactions, always filter stocks
+        //    - no date or period -> all transactions
+        //    - date -> filter transactions up to & incl. date
+        //    - period -> transactions between two dates (inclusive)
+        // TimeFilter date/period
+        // Stockfilter
+        return Result.failure("not implemented");
+    }
+
     @Command(name = "avgCost")
-    void avgCost(@Mixin DB db, @Mixin TimeFilter tf) {
-        // --date not supported
-        System.out.println("Subcommand: avgCost");
+    int avgCost(@Mixin DB db, @Mixin TimeFilter tf) {
+        if (tf != null && tf.opt != null && tf.opt.date != null) {
+            System.out.println("--date option not supported with avgCost command");
+            return -1;
+        }
+
+        if (dryRun) {
+            // -- TimeFilter date/period
+            // -- Stockfilter
+            // -- DB create, use existing
+            // -- Ingest txFile
+            dryRunOutput();
+            return 0;
+        } else {
+            Result<BigDecimal> output = avgCost_(db, txFile);
+            output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
+                + " " + err));
+            return output.isFailure() ? -1 : 0;
+        }
+    }
+
+    static Result<BigDecimal> twrr_(DB db, File txFile) {
+        // - twrr (date, period): 1) filtered transactions, always filter stocks 2) twrr until specific date
+        //    - no date or period -> all transactions
+        //    - date -> transactions up to & incl. date, twrr on date
+        return Result.failure("not implemented");
     }
 
     @Command(name = "twrr")
-    void TWRR(@Mixin DB db, @Mixin TimeFilter tf) {
-        // --date not supported
-        System.out.println("Subcommand: twrr");
+    int TWRR(@Mixin DB db, @Mixin TimeFilter tf) {
+        if (tf != null && tf.opt != null && tf.opt.date != null) {
+            System.out.println("--date option not supported with twrr command");
+            return -1;
+        }
+
+        if (dryRun) {
+            // -- TimeFilter date/period
+            // -- Stockfilter
+            // -- DB create, use existing
+            // -- Ingest txFile
+            dryRunOutput();
+            return 0;
+        } else {
+            Result<BigDecimal> output = twrr_(db, txFile);
+            output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
+                + " " + err));
+            return output.isFailure() ? -1 : 0;
+        }
     }
 
     // Business logic goes in here
