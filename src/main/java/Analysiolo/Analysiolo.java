@@ -141,7 +141,6 @@ public class Analysiolo implements Callable<Integer> {
 
     // subcommand
     static Result<List<Transaction>> prepTransactions(DB db, File txFile) {
-        // Check for db, read & check additional transactions, ingest into ds
         return Utilities.parseDbOption(db)
             .flatMap(ds -> Utilities.convertToResult(txFile)
                 .flatMap(Utilities::checkTxIn)
@@ -154,8 +153,6 @@ public class Analysiolo implements Callable<Integer> {
 
     static Result<List<Transaction>> list_(DB db, TimeFilter tf,
                                           java.util.List<String> symbols, File txFile) {
-        // Check for db, read & check additional transactions, ingest into ds
-        // Then filter transactions according to symbols and time filter
         return prepTransactions(db, txFile)
             .map(txs -> txs.filter(Utilities.symbolComparator(symbols)))
             .map(txs -> txs.filter(Utilities.timePeriodComparator(tf)))
@@ -163,17 +160,63 @@ public class Analysiolo implements Callable<Integer> {
     }
 
     @Command(name = "list")
-    int list(@Mixin DB db, @Mixin TimeFilter tf) {
-        Result<List<Transaction>> lTx = list_(db, tf, stockFilter, txFile);
-        if (lTx.isFailure()) {
-            lTx.forEach(failure -> System.out.println("Failure: " + failure));
+    int list(@Mixin DB db, @Mixin TimeFilter tf) throws Exception {
+        // Input validation
+        if (db == null || db.opt == null) {
+            System.out.println("No path to database given, exiting");
             return -1;
+        } else if (db.opt.newDBPath != null) {
+            String dbPath = Utilities.removePossibleExtensions(db.opt.newDBPath.getCanonicalPath());
+            File dbFile = new File(dbPath + ".mv.db");
+
+            if (dbFile.exists()) {
+                System.out.println("Database already exists at " + dbPath);
+                return -1;
+            }
+        } else {
+            String dbPath = Utilities.removePossibleExtensions(db.opt.dbPath.getCanonicalPath());
+            File dbFile = new File(dbPath + ".mv.db");
+
+            if (!dbFile.exists()){
+                System.out.println("No database found at " + dbPath);
+                return -1;
+            }
         }
 
-        lTx.failIfEmpty("()")
-            .forEachOrFail(l -> l.forEach(System.out::println))
-            .forEach(System.out::println);
-        return 1;
+        if (dryRun) {
+            String dbPath = Utilities
+                .removePossibleExtensions(db.opt.dbPath == null
+                    ? db.opt.newDBPath.getCanonicalPath()
+                    : db.opt.dbPath.getCanonicalPath());
+
+            String dbMsg = db.opt.newDBPath == null ? "Using existing" : "Creating new";
+            System.out.println(dbMsg + " database at: " + dbPath + ".mv.db");
+
+            if (txFile != null)
+                System.out.println("Ingesting transactions into database from file " + txFile.getCanonicalPath());
+
+            if (stockFilter != null)
+                System.out.println("Filtering transactions for following stocks " + stockFilter);
+
+            if (tf != null && tf.opt != null) {
+                List<LocalDate> f = Utilities.parseTimeFilter(tf);
+                if (f.size() == 1)
+                    System.out.println("Filtering for transactions before " + f.get(0));
+                else
+                    System.out.println("Filtering for transactions between "
+                        + f.get(0) + " and " + f.get(1));
+            }
+
+            System.out.println("Outputting list");
+            return 0;
+        } else {
+            Result<List<Transaction>> lTx = list_(db, tf, stockFilter, txFile)
+                .failIfEmpty("()");
+
+            lTx.forEachOrFail(l -> l.forEach(System.out::println))
+               .forEach(System.out::println);
+            return lTx.isFailure() ? -1 : 0;
+        }
     }
 
     static Result<List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>>>

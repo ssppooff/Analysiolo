@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -63,9 +62,6 @@ final class Utilities {
     }
 
     static Result<DataSource> parseDbOption(DB db) {
-        if (db == null || db.opt == null)
-            return Result.failure("No path to database given, exiting");
-
         try {
             String dbPath = removePossibleExtensions(db.opt.dbPath == null
                 ? db.opt.newDBPath.getCanonicalPath()
