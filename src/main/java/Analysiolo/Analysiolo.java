@@ -159,55 +159,71 @@ public class Analysiolo implements Callable<Integer> {
             .mapEmptyCollection();
     }
 
+    static Result<String> validationDBOptions(DB db) {
+        try {
+            if (db == null || db.opt == null)
+                return Result.failure("No path to database given, exiting");
+            else {
+                String dbPath = Utilities
+                    .removePossibleExtensions(db.opt.dbPath == null
+                        ? db.opt.newDBPath.getCanonicalPath()
+                        : db.opt.dbPath.getCanonicalPath());
+                File dbFile = new File(dbPath + ".mv.db");
+
+                if (db.opt.newDBPath != null)
+                    return dbFile.exists()
+                        ? Result.failure("Database already exists at " + dbPath)
+                        : Result.success("Creating new database at" + dbPath);
+                else
+                    return !dbFile.exists()
+                        ? Result.failure("No database found at " + dbPath)
+                        : Result.success("Using existing database at" + dbPath);
+
+            }
+        } catch (Exception e) {
+            return Result.failure(e);
+        }
+    }
+
+    static void dryRunFile(File txFile) throws Exception {
+        if (txFile != null)
+            System.out.println("Ingesting transactions into database from file " + txFile.getCanonicalPath());
+    }
+
+    static void dryRunStockFilter(java.util.List<String> stockFilter) {
+        if (stockFilter != null)
+            System.out.println("Filtering transactions for following stocks " + stockFilter);
+    }
+
+    static void dryRunTimeFiler(TimeFilter tf) {
+        if (tf != null && tf.opt != null) {
+            List<LocalDate> f = Utilities.parseTimeFilter(tf);
+            if (f.size() == 1)
+                System.out.println("Filtering for transactions before " + f.get(0));
+            else
+                System.out.println("Filtering for transactions between "
+                    + f.get(0) + " and " + f.get(1));
+        }
+    }
+
+    static void dryRunOutput() {
+        System.out.println("Outputting list");
+    }
+
     @Command(name = "list")
     int list(@Mixin DB db, @Mixin TimeFilter tf) throws Exception {
-        // Input validation
-        if (db == null || db.opt == null) {
-            System.out.println("No path to database given, exiting");
+        Result<String> dbValidation = validationDBOptions(db);
+        if (dbValidation.isFailure()) {
+            dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
             return -1;
-        } else if (db.opt.newDBPath != null) {
-            String dbPath = Utilities.removePossibleExtensions(db.opt.newDBPath.getCanonicalPath());
-            File dbFile = new File(dbPath + ".mv.db");
-
-            if (dbFile.exists()) {
-                System.out.println("Database already exists at " + dbPath);
-                return -1;
-            }
-        } else {
-            String dbPath = Utilities.removePossibleExtensions(db.opt.dbPath.getCanonicalPath());
-            File dbFile = new File(dbPath + ".mv.db");
-
-            if (!dbFile.exists()){
-                System.out.println("No database found at " + dbPath);
-                return -1;
-            }
         }
 
         if (dryRun) {
-            String dbPath = Utilities
-                .removePossibleExtensions(db.opt.dbPath == null
-                    ? db.opt.newDBPath.getCanonicalPath()
-                    : db.opt.dbPath.getCanonicalPath());
-
-            String dbMsg = db.opt.newDBPath == null ? "Using existing" : "Creating new";
-            System.out.println(dbMsg + " database at: " + dbPath + ".mv.db");
-
-            if (txFile != null)
-                System.out.println("Ingesting transactions into database from file " + txFile.getCanonicalPath());
-
-            if (stockFilter != null)
-                System.out.println("Filtering transactions for following stocks " + stockFilter);
-
-            if (tf != null && tf.opt != null) {
-                List<LocalDate> f = Utilities.parseTimeFilter(tf);
-                if (f.size() == 1)
-                    System.out.println("Filtering for transactions before " + f.get(0));
-                else
-                    System.out.println("Filtering for transactions between "
-                        + f.get(0) + " and " + f.get(1));
-            }
-
-            System.out.println("Outputting list");
+            dbValidation.forEach(System.out::println);
+            dryRunFile(txFile);
+            dryRunStockFilter(stockFilter);
+            dryRunTimeFiler(tf);
+            dryRunOutput();
             return 0;
         } else {
             Result<List<Transaction>> lTx = list_(db, tf, stockFilter, txFile)
@@ -234,12 +250,11 @@ public class Analysiolo implements Callable<Integer> {
 
     @Command(name = "price")
     int price(@Mixin DB db, @Mixin TimeFilter tf) {
-
-        // Input validation
         if (stockFilter == null || stockFilter.isEmpty()) {
             System.out.println("At least one ticker symbol must be given");
             return -1;
         }
+
         if (tf != null && tf.opt != null) {
             if (tf.opt.date != null && tf.opt.date.isAfter(LocalDate.now())) {
                 System.out.println("--date cannot be in the future");
@@ -332,10 +347,32 @@ public class Analysiolo implements Callable<Integer> {
     }
 
     @Command(name = "value")
-    int value(@Mixin DB db, @Mixin TimeFilter tf) {
-        Result<List<Tuple<LocalDate, BigDecimal>>> res = value_(db, tf, stockFilter, txFile);
+    int value(@Mixin DB db, @Mixin TimeFilter tf) throws Exception {
+        Result<String> dbValidation = validationDBOptions(db);
+        if (dbValidation.isFailure()) {
+            dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
+            return -1;
+        }
 
-        return 1;
+        if (dryRun) {
+            dbValidation.forEach(System.out::println);
+            dryRunFile(txFile);
+            dryRunStockFilter(stockFilter);
+
+            List<LocalDate> dates = Utilities.parseTimeFilter(tf);
+            dates.forEach(date ->
+                System.out.println("Computing value of portfolio on date + " + date));
+            if (dates.size() == 2)
+                System.out.println("Adding change metrics");
+
+            dryRunOutput();
+            return 0;
+        } else {
+            Result<List<Tuple<LocalDate, BigDecimal>>> output = value_(db, tf, stockFilter, txFile);
+            output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
+                + " " + err));
+            return output.isFailure() ? -1 : 0;
+        }
     }
 
     @Command(name = "avgCost")
@@ -352,7 +389,7 @@ public class Analysiolo implements Callable<Integer> {
 
     // Business logic goes in here
     @Override
-    public Integer call() {
+    public Integer call() throws Exception {
         System.out.println("No subcommand specified, assuming subcommand value");
         return value(db, tf);
     }
