@@ -22,6 +22,7 @@ import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /* TODO:
+    - period = ytd, year-to-date, one-year
     - output/rendering
         - refactor into applyTheme(data, theme) & Utilities.basicTheme()/themeWithDelta -> Func
         - create basic theme for data w/ 1 price & themeWithDelta for 2 prices
@@ -54,19 +55,28 @@ $ analysiolo demo.db
 --date closing_price_date (arity 1)
 
 * Subcommands
-- price (date, period): (needs stock filter) date -> price of stock on specific date (make sure
-it is today or before) if today print current price, period -> price of stock on both dates +
-delta, nothing ->
-current price
-- list (date, period): date -> every transactions up to (incl.) date, period -> every
-  transactions inside period (inclusive)
-- value (date, period): no date given -> current value, date -> transactions until date and value on
-  date, period -> change in value between two dates ie. compute value at both dates
-- avgCost (period)
-- twrr (period)
+- price (date, period): db & tx file ignored, needs stock filter
+    - no date or period -> current price of each stock
+    - date -> price of each stock on date (make sure date is today or before)
+    - period -> for each date (make sure date is today or before): price of each stock, add change metrics
+- list (date, period): show transactions, always filter stocks
+    - no date or period: all transactions
+    - date -> every transactions up to & incl. date
+    - period -> every transactions inside period (inclusive)
+- value (date, period): 1) filtered transactions, always filter stocks 2) value on specific date
+    - no date or period -> all transactions, value today
+    - date -> transactions up to & incl. date, value on date
+    - period -> compute for each date: transactions up to & incl. date, value on date
+- avgCost (date, period): avgCost for each stock over filtered transactions, always filter stocks
+    - no date or period -> all transactions
+    - date -> filter transactions up to & incl. date
+    - period -> transactions between two dates (inclusive)
+- twrr (date, period): 1) filtered transactions, always filter stocks 2) twrr until specific date
+    - no date or period -> all transactions
+    - date -> transactions up to & incl. date, twrr on date
 
 * Specifying time periods
-* -> if only one date: taken as from-date with end-date right now
+* -> if only one date: taken as from-date with end-date today
 Following equivalent
 $ analysiolo <subcommand> -d demo.db (equiv)
 $ analysiolo <subcommand> -d demo.db --period inception (equiv)
@@ -74,8 +84,6 @@ $ analysiolo <subcommand> -d demo.db --period inception now (equiv)
 $ analysiolo <subcommand> -d demo.db --period 2021-10-10 (from-date until now)
 $ analysiolo <subcommand> -d demo.db --period 2021-10-10 now (equiv to ^)
 $ analysiolo <subcommand> -d demo.db --period inception 2021-10-10 (from- to end-date)
-$ analysiolo <subcommand> -d demo.db --filter=TSLA,SP500 --period 2021-10-10
-$ analysiolo <subcommand> -d demo.db --period 2021-10-10 --filter=TSLA,SP500
 
 * Filter the used transactions to a specific stock
 $ analysiolo <subcommand> -d demo.db --filter=TSLA,AVUV (1+ stock tickers)
