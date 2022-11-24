@@ -141,6 +141,8 @@ final class Utilities {
         return switch (s) {
             case "now" -> LocalDate.now();
             case "inception" -> LocalDate.parse("1000-01-01");
+            case "one-year" -> LocalDate.now().minusYears(1L);
+            case "ytd", "year-to-date" -> LocalDate.of(LocalDate.now().getYear(), 1, 1);
             default -> LocalDate.parse(s);
         };
     }
@@ -168,6 +170,8 @@ final class Utilities {
                 return switch (period.head()) {
                     case "now" -> tx -> tx.getDate().equals(LocalDate.now());
                     case "inception" -> tx -> true;
+                    case "ytd", "year-to-date", "one-year" ->
+                        tx -> tx.getDate().compareTo(parsePeriod(period.head())) >= 0;
                     default -> tx -> tx.getDate().compareTo(LocalDate.parse(period.head())) >= 0;
                 };
             } else { // period.size() == 2
