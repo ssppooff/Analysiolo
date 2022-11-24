@@ -313,11 +313,15 @@ public class Analysiolo implements Callable<Integer> {
         } else {
             Result<String> output = price_(tf, stockFilter)
                 .map(Utilities::changeFormat)
-                .map(t -> t._1.size() >= 2
-                    ? Utilities.applyTheme(
-                    t.mapLeft(m -> m.mapVal(Utilities::addChangeMetrics)),
-                    Utilities.themeTwoPricesWithDelta())
-                    : Utilities.applyTheme(t, Utilities.themeOnePrice()))
+                .map(t -> {
+                    if (t._1.size() == 1)
+                        return Utilities.applyTheme(t, Utilities.themeSimple());
+                    else {
+                        t = t.mapRight(m -> m.mapVal(Utilities::addChangeMetrics))
+                             .mapLeft(header -> List.concat(header, List.of("𝝙", "𝝙 (%)")));
+                        return Utilities.applyTheme(t, Utilities.themeChangeMetrics());
+                    }
+                })
                 .map(Utilities::renderTable);
             output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
                 + " " + err));

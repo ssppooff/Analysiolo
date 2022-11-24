@@ -202,18 +202,12 @@ final class Utilities {
         }
     }
 
-    static List<List<String>> applyTheme(Tuple<List<LocalDate>, Map<Symbol, List<BigDecimal>>> data,
+    static List<List<String>> applyTheme(Tuple<List<String>, Map<Symbol, List<BigDecimal>>> data,
         Function<List<List<String>>, List<List<String>>> theme) {
         List<String> header = List.list();
         Map<Symbol, List<BigDecimal>> priceData = data._2;
 
-        if (data._1.size() > 1) {
-            priceData = priceData.mapVal(Utilities::addChangeMetrics);
-            header = List.of("𝝙", "𝝙 (%)");
-        }
-
-        header = data._1.reverse()
-                        .foldLeft(header, hd -> date -> hd.prepend(date.toString()))
+        header = data._1.foldRight(header, colName -> hd -> hd.prepend(colName))
                         .prepend("");
 
         List<List<String>> strData = priceData
@@ -226,7 +220,7 @@ final class Utilities {
         return theme.apply(strData);
     }
 
-    static Function<List<List<String>>, List<List<String>>> themeOnePrice() {
+    static Function<List<List<String>>, List<List<String>>> themeSimple() {
         String horzSep = "-";
         return s -> {
             List<List<String>> res = prepocessData(s);
@@ -240,7 +234,7 @@ final class Utilities {
         };
     }
 
-    static Function<List<List<String>>, List<List<String>>> themeTwoPricesWithDelta() {
+    static Function<List<List<String>>, List<List<String>>> themeChangeMetrics() {
         String horzSep = "-";
         String vertDateSep = "~>";
         String vertResSep = "|";
@@ -305,9 +299,9 @@ final class Utilities {
                                             .reduce(row1 -> row2 -> row1.zipWith(row2, Math::max));
     }
 
-    static Tuple<List<LocalDate>, Map<Symbol, List<BigDecimal>>> changeFormat(
+    static Tuple<List<String>, Map<Symbol, List<BigDecimal>>> changeFormat(
         List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>> data) {
-        List<LocalDate> dates = data.map(Tuple::_1);
+        List<String> colNames = data.map(Tuple::_1).map(LocalDate::toString);
 
         // TODO data.stream()
         List<Tuple3<Symbol, LocalDate, BigDecimal>> flattenedData =
@@ -321,7 +315,7 @@ final class Utilities {
                              .sortFP(Comparator.comparing(Tuple3::_2))
                              .map(Tuple3::_3));
 
-        return new Tuple<>(dates, priceData);
+        return new Tuple<>(colNames, priceData);
     }
 
     static List<BigDecimal> addChangeMetrics(List<BigDecimal> prices) {

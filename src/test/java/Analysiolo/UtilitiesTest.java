@@ -320,8 +320,8 @@ class UtilitiesTest {
         new Tuple<>(symbol2, prices2.tail().head())));
 
     Map<Symbol, List<BigDecimal>> m = Map.empty();
-    Tuple<List<LocalDate>, Map<Symbol, List<BigDecimal>>> exp =
-        new Tuple<>(List.of(date1, date2), m.put(symbol1, prices1).put(symbol2, prices2));
+    Tuple<List<String>, Map<Symbol, List<BigDecimal>>> exp =
+        new Tuple<>(List.of(dateStr1, dateStr2), m.put(symbol1, prices1).put(symbol2, prices2));
 
     assertEquals(exp, Utilities.changeFormat(List.of(entry1, entry2)));
   }
@@ -332,7 +332,7 @@ class UtilitiesTest {
         List.of("", "2021-10-10", "2022-10-10", "delta", "delta (%)"),
         List.of("TSLA", "100.000", "200.000", "100.000", "1.00"),
         List.of("VTI", "2000.000", "20.000", "-1980.000", "-0.49"));
-    var f= Utilities.themeTwoPricesWithDelta().apply(data);
+    var f= Utilities.themeChangeMetrics().apply(data);
     System.out.println(Utilities.renderTable(f));
   }
 
@@ -342,7 +342,7 @@ class UtilitiesTest {
         List.of("", "2021-10-10"),
         List.of("TSLA", "100.000"),
         List.of("VTI", "2000.000"));
-    var f = Utilities.themeOnePrice().apply(data);
+    var f = Utilities.themeSimple().apply(data);
     System.out.println(Utilities.renderTable(f));
   }
 }
