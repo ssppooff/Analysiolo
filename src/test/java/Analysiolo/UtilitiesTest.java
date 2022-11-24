@@ -121,33 +121,6 @@ class UtilitiesTest {
   }
 
   @Test
-  void computeDateTest() {
-    Analysiolo.TimeFilter tf = new Analysiolo.TimeFilter();
-    tf.opt = new ExclusiveTFOptions();
-    tf.opt.date = LocalDate.parse("2021-10-11");
-    String expStr = "2021-10-11";
-    assertEquals(expStr, Utilities.computeDate(tf));
-
-    tf.opt.date = null;
-    tf.opt.period = List.of("now");
-    expStr = LocalDate.now().toString();
-    assertEquals(expStr, Utilities.computeDate(tf));
-
-    tf.opt.period = List.of("inception", "now");
-    expStr = LocalDate.now().toString();
-    assertEquals(expStr, Utilities.computeDate(tf));
-
-    tf.opt.period = List.of("inception", "2021-10-11");
-    expStr = "2021-10-11";
-    assertEquals(expStr, Utilities.computeDate(tf));
-
-    tf.opt.period = List.of("2021-10-11");
-    expStr = "2021-10-11";
-    assertEquals(expStr, Utilities.computeDate(tf));
-
-  }
-
-  @Test
   void parseDbOptionTest() {
     DB db = new DB();
     assertFailure(Utilities.parseDbOption(db));
@@ -198,11 +171,6 @@ class UtilitiesTest {
     res = Utilities.parseTimeFilter(tf);
     expRes = List.of(LocalDate.parse("1000-01-01"), LocalDate.parse(dateStr2));
     assertEquals(expRes, res);
-  }
-
-  @Test
-  void convertToResultTest() {
-    assertSuccess(Utilities.convertToResult(new File("test")));
   }
 
   @Test
