@@ -366,11 +366,13 @@ public abstract class Result<T> implements Serializable {
 
     @Override
     public Result<T> mapEmptyCollection() {
-      return !(value instanceof Collection<?> c)
-             ? Result.failure(value.getClass() + " cannot be cast to Collection<?>")
-             : c.isEmpty()
-               ? empty()
-               : this;
+      if (value instanceof Collection<?> c)
+        return c.isEmpty() ? empty() : this;
+
+      if (value instanceof Map<?,?> m)
+        return m.isEmpty() ? empty() : this;
+
+      return Result.failure(value.getClass() + " cannot be cast to Collection<?> or Map<?,?>");
     }
 
     @Override
