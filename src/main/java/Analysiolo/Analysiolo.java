@@ -23,12 +23,6 @@ import stockAPI.Transaction;
 
 /* TODO:
     - period = ytd, year-to-date, one-year
-    - output/rendering
-        - refactor into applyTheme(data, theme) & Utilities.basicTheme()/themeWithDelta -> Func
-        - create basic theme for data w/ 1 price & themeWithDelta for 2 prices
-        - add '->' vertical line to themeWithDelta
-    - Input validation
-    - implement dry-run
 
 # CLI call options
 * Example: Create a new database and add some transactions
@@ -149,8 +143,9 @@ public class Analysiolo implements Callable<Integer> {
 
     // subcommand
     static Result<List<Transaction>> prepTransactions(DB db, File txFile) {
+        Result<File> file = txFile == null ? Result.empty() : Result.success(txFile);
         return Utilities.parseDbOption(db)
-            .flatMap(ds -> Utilities.convertToResult(txFile)
+            .flatMap(ds -> file
                 .flatMap(Utilities::checkTxIn)
                 .flatMap(ds::insertTransactions)
                 .mapEmpty(() -> ds))

@@ -320,12 +320,13 @@ class AnalysioloTest {
     return exp.subtract(act).abs().compareTo(margin) <= 0;
   }
 
-  // price (date, period): (needs stock filter) date -> price of stock on specific date (make sure
-  //   it is today or before) if today print current price, period -> price of stock on both dates +
-  //   delta, nothing -> current price
+  // price (date, period): db & tx file ignored, needs stock filter
+  //  - no date or period -> current price of each stock
+  //  - date -> price of each stock on date (make sure date is today or before)
+  //  - period -> for each date (make sure date is today or before): price of each stock, add change
+  //    metrics
   @Test
   void priceTest() {
-
     String dateStr1 = "2021-11-07";
     String dateStr2 = "2022-11-07";
 

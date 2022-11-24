@@ -48,19 +48,6 @@ final class Utilities {
 
     private Utilities() {}
 
-    static String computeDate(final TimeFilter filter) {
-        if (filter.opt == null)
-            return LocalDate.now().toString();
-        if (filter.opt.date != null)
-            return filter.opt.date.toString();
-        else {
-            String lastElement = filter.opt.period.get(filter.opt.period.size() - 1);
-            return lastElement.equals("inception")
-                ? LocalDate.now().toString()
-                : parsePeriod(lastElement).toString();
-        }
-    }
-
     static Result<DataSource> parseDbOption(DB db) {
         try {
             String dbPath = removePossibleExtensions(db.opt.dbPath == null
@@ -90,12 +77,6 @@ final class Utilities {
             : p2.matcher(path).matches()
                 ? path.substring(0, path.length() - 3)
                 : path;
-    }
-
-    static Result<File> convertToResult(File path) {
-        return path == null
-            ? Result.empty()
-            : Result.success(path);
     }
 
     static Result<List<Transaction>> checkTxIn(File path) {
@@ -156,11 +137,6 @@ final class Utilities {
         }
     }
 
-    static List<LocalDate> parsePeriod(TimeFilter tf) {
-        return tf.opt.period.size() == 2
-            ? List.of(tf.opt.period).map(Utilities::parsePeriod)
-            : List.of(parsePeriod(tf.opt.period.get(0)), LocalDate.now()); // size() == 2
-    }
     static LocalDate parsePeriod(String s) {
         return switch (s) {
             case "now" -> LocalDate.now();
@@ -303,7 +279,6 @@ final class Utilities {
         List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>> data) {
         List<String> colNames = data.map(Tuple::_1).map(LocalDate::toString);
 
-        // TODO data.stream()
         List<Tuple3<Symbol, LocalDate, BigDecimal>> flattenedData =
             data.foldLeft(List.list(), resList -> outerT ->
                 outerT._2.foldLeft(resList, innerResList -> innerT ->
@@ -328,7 +303,7 @@ final class Utilities {
     }
 
     static String renderTable(List<List<String>> data) {
-        return data.reduce(" ", outerStr -> row ->
+        return data.reduce("", outerStr -> row ->
             outerStr
                 + row.reduce(" ", innerStr -> el -> innerStr + el + " ")
                 + "\n");
