@@ -237,23 +237,22 @@ class UtilitiesTest {
     return List.of(row1, row2, row3, row4, row5, row6);
   }
 
-//  @Test
-//  void padDataTest() {
-//    List<List<String>> table = getTable().prepend(getHeader());
-//    String[][] padded = Utilities.padCells(table).map(List::toArray).toArray();
-//    List<String> currHd = table.head();
-//    for (int col = 0; col < table.head().size(); col++) {
-//      assertEquals(currHd.head().length(), padded[0][col].length());
-//      currHd = currHd.tail();
-//    }
-//  }
+  @Test
+  void padMissingCellsTest() {
+    List<List<String>> table = getTable().prepend(getHeader());
+    List<List<String>> res = Utilities.padMissingCells(table);
+    res.forEach(row -> assertEquals(7, row.size()));
+  }
 
-//  @Test
-//  void renderTableTest() {
-//    List<List<String>> table = getTable().prepend(getHeader());
-//    String r = Utilities.renderTable(Utilities.padCells(table));
-//    System.out.println(r);
-//  }
+  @Test
+  void renderTableTest() {
+    List<List<String>> table = getTable().prepend(getHeader());
+    List<List<String>> filledTable = Utilities.padMissingCells(table);
+    List<Integer> colWidth = Utilities.getColumnMaxWidth(filledTable);
+    List<List<String>> paddedCells = filledTable.map(row -> row
+        .zipWith(colWidth, cell -> width -> Utilities.padCellToLen(cell, width, false)));
+    System.out.println(Utilities.renderTable(paddedCells));
+  }
 
   @Test
   void addChangeMetricsTest() {
