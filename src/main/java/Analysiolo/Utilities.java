@@ -203,7 +203,7 @@ final class Utilities {
     static Function<List<List<String>>, List<List<String>>> themeSimple() {
         String horzSep = "-";
         return s -> {
-            List<List<String>> res = prepocessData(s);
+            List<List<String>> res = padMissingCells(s);
             List<Integer> columnWidth = getColumnMaxWidth(s);
 
             res = applyThemes(res, columnWidth, Theme.Header, Theme.RowName, Theme.Data);
@@ -219,7 +219,7 @@ final class Utilities {
         String vertDateSep = "~>";
         String vertResSep = "|";
         return s -> {
-            List<List<String>> res = prepocessData(s);
+            List<List<String>> res = padMissingCells(s);
             List<Integer> columnWidth = getColumnMaxWidth(s);
 
             res = applyThemes(res, columnWidth, Theme.Header, Theme.RowName, Theme.Data);
@@ -241,9 +241,14 @@ final class Utilities {
         };
     }
 
-    private static List<List<String>> prepocessData(final List<List<String>> s) {
-        int maxRowSize = s.map(List::size).reduce(0, max -> len -> len > max ? len : max);
-        return padMissingCells(s, maxRowSize);
+    static List<List<String>> padMissingCells(final List<List<String>> s) {
+        int maxRowSize = s.map(List::size).reduce(0, max -> rowLen -> Math.max(rowLen, max));
+        return s.map(row -> {
+            int padLength = maxRowSize - row.size();
+            return padLength > 0
+                ? List.concat(row, Stream.repeat("").take(padLength).toList())
+                : row;
+        });
     }
 
     private static List<List<String>> applyThemes(List<List<String>> s, List<Integer> columnWidth,
@@ -258,20 +263,11 @@ final class Utilities {
                 .prepend(List.zipWith(s.head(), columnWidth, themeHeader.get()));
     }
 
-    private static String padCellToLen(String cell, int length, boolean rightJustified) {
+    static String padCellToLen(String cell, int length, boolean rightJustified) {
         String padding = " ".repeat(length - cell.length());
         return rightJustified
             ? padding + cell
             : cell + padding;
-    }
-
-    static List<List<String>> padMissingCells(final List<List<String>> rowData, int maxRowSize) {
-        return rowData.map(row -> {
-            int padLength = maxRowSize - row.size();
-            if (padLength > 0)
-                row = List.concat(row, Stream.repeat("").take(padLength).toList());
-            return row;
-        });
     }
 
     static List<Integer> getColumnMaxWidth(final List<List<String>> rowData) {
