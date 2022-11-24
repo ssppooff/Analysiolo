@@ -25,7 +25,6 @@ import stockAPI.Symbol;
 import stockAPI.Transaction;
 
 /* TODO:
-    - period = ytd, year-to-date, one-year
 
 # CLI call options
 * Example: Create a new database and add some transactions
