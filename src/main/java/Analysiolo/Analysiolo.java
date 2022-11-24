@@ -156,14 +156,6 @@ public class Analysiolo implements Callable<Integer> {
                 .map(ignoreReturn -> t._1));
     }
 
-    static Result<List<Transaction>> list_(DB db, TimeFilter tf,
-                                          java.util.List<String> symbols, File txFile) {
-        return prepTransactions(db, txFile)
-            .map(txs -> txs.filter(Utilities.symbolComparator(symbols)))
-            .map(txs -> txs.filter(Utilities.timePeriodComparator(tf)))
-            .mapEmptyCollection();
-    }
-
     static Result<String> validationDBOptions(DB db) {
         try {
             if (db == null || db.opt == null)
@@ -215,6 +207,14 @@ public class Analysiolo implements Callable<Integer> {
         System.out.println("Outputting list");
     }
 
+    static Result<List<Transaction>> list_(DB db, TimeFilter tf,
+        java.util.List<String> symbols, File txFile) {
+        return prepTransactions(db, txFile)
+            .map(txs -> txs.filter(Utilities.symbolComparator(symbols)))
+            .map(txs -> txs.filter(Utilities.timePeriodComparator(tf)))
+            .mapEmptyCollection();
+    }
+
     @Command(name = "list")
     int list(@Mixin DB db, @Mixin TimeFilter tf) throws Exception {
         Result<String> dbValidation = validationDBOptions(db);
@@ -231,11 +231,11 @@ public class Analysiolo implements Callable<Integer> {
             dryRunOutput();
             return 0;
         } else {
-            Result<List<Transaction>> lTx = list_(db, tf, stockFilter, txFile)
-                .failIfEmpty("()");
+            Result<List<Transaction>> lTx = list_(db, tf, stockFilter, txFile);
 
-            lTx.forEachOrFail(l -> l.forEach(System.out::println))
-               .forEach(System.out::println);
+            lTx.failIfEmpty("No transaction corresponds to filter criteria")
+               .forEachOrFail(l -> l.forEach(System.out::println))
+               .forEach(err -> System.out.println("Error: " + err));
             return lTx.isFailure() ? -1 : 0;
         }
     }
@@ -346,7 +346,8 @@ public class Analysiolo implements Callable<Integer> {
             Utilities.parseTimeFilter(tf)
                 .map(date -> lTx
                     .flatMap(txs -> valueOnDateFromTx(txs, date)
-                        .map(value -> new Tuple<>(date, value)))));
+                        .map(value -> new Tuple<>(date, value)))))
+            .mapEmptyCollection();
     }
 
     static Result<BigDecimal> valueOnDateFromTx(final List<Transaction> lTx, final LocalDate date) {
@@ -378,8 +379,9 @@ public class Analysiolo implements Callable<Integer> {
             return 0;
         } else {
             Result<List<Tuple<LocalDate, BigDecimal>>> output = value_(db, tf, stockFilter, txFile);
-            output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
-                + " " + err));
+            output.failIfEmpty("No transaction corresponds to filter criteria")
+                  .forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
+                      + " " + err));
             return output.isFailure() ? -1 : 0;
         }
     }
@@ -394,19 +396,22 @@ public class Analysiolo implements Callable<Integer> {
             .mapEmptyCollection()
             .map(lTx -> lTx.groupBy(Transaction::getSymbol));
 
-        return filteredTxs.map(m -> m
-            .mapVal(lTx -> lTx
-                .foldLeft(new Tuple3<>(new Tuple<>(BigDecimal.ZERO, 0), lTx.head().getPrice(), lTx.head().getPrice()),
-                    t3 -> tx -> {
-                        BigDecimal min = tx.getPrice().min(t3._2);
-                        BigDecimal max = tx.getPrice().max(t3._3);
-                        BigDecimal totCost = t3._1._1.add(
-                            tx.getPrice().multiply(new BigDecimal(tx.getNumShares())));
-                        int totNum = t3._1._2 + tx.getNumShares();
-                        return new Tuple3<>(new Tuple<>(totCost, totNum), min, max);
-                    })
-                .mapVal1(t -> t._1.divide(new BigDecimal(t._2), RoundingMode.HALF_UP)))
-            .mapVal(t3 -> List.of(t3._1, t3._2, t3._3)));
+        return filteredTxs
+            .map(m -> m
+                .mapVal(lTx -> lTx
+                    .foldLeft(new Tuple3<>(new Tuple<>(BigDecimal.ZERO, 0),
+                            lTx.head().getPrice(), lTx.head().getPrice()),
+                        t3 -> tx -> {
+                            BigDecimal min = tx.getPrice().min(t3._2);
+                            BigDecimal max = tx.getPrice().max(t3._3);
+                            BigDecimal totCost = t3._1._1.add(
+                                tx.getPrice().multiply(new BigDecimal(tx.getNumShares())));
+                            int totNum = t3._1._2 + tx.getNumShares();
+                            return new Tuple3<>(new Tuple<>(totCost, totNum), min, max);
+                        })
+                    .mapVal1(t -> t._1.divide(new BigDecimal(t._2), RoundingMode.HALF_UP)))
+                .mapVal(t3 -> List.of(t3._1, t3._2, t3._3)))
+            .mapEmptyCollection();
     }
 
     @Command(name = "avgCost")
@@ -417,6 +422,7 @@ public class Analysiolo implements Callable<Integer> {
         }
 
         if (dryRun) {
+            // TODO: avgCost dry-run
             // -- TimeFilter date/period
             // -- Stockfilter
             // -- DB create, use existing
@@ -424,17 +430,18 @@ public class Analysiolo implements Callable<Integer> {
             dryRunOutput();
             return 0;
         } else {
-            List<String> colNames = List.of("avg cost", "min price", "max price");
-            Result<Map<Symbol, List<BigDecimal>>> output =
+            // TODO: avgCost correct output
+            List<String> colNames = List.of("avg cost", "min", "max");
+            Result<Map<Symbol, List<BigDecimal>>> data =
                 avgCost_(db, tf, stockFilter, txFile);
-            var data = output
+            var output = data
                 .map(out -> new Tuple<>(colNames, out))
                 .map(t -> Utilities.applyTheme(t, Utilities.themeSimple()))
                 .map(Utilities::renderTable);
-            System.out.println("Cost of purchase for stocks " + stockFilter + " between dates " + " ?????");
-            output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
+            output.failIfEmpty("No transaction corresponds to filter criteria")
+            .forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
                 + " " + err));
-            return output.isFailure() ? -1 : 0;
+            return data.isFailure() ? -1 : 0;
         }
     }
 
