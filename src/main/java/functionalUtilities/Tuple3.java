@@ -1,5 +1,7 @@
 package functionalUtilities;
 
+import java.util.function.Function;
+
 public class Tuple3<A, B, C> {
   public A _1;
   public B _2;
@@ -21,6 +23,18 @@ public class Tuple3<A, B, C> {
 
   public C _3() {
     return _3;
+  }
+
+  public <D> Tuple3<D, B, C> mapVal1(Function<A, D> f) {
+    return new Tuple3<>(f.apply(_1), _2, _3);
+  }
+
+  public <D> Tuple3<A, D, C> mapVal2(Function<B, D> f) {
+    return new Tuple3<>(_1, f.apply(_2), _3);
+  }
+
+  public <D> Tuple3<A, B, D> mapVal3(Function<C, D> f) {
+    return new Tuple3<>(_1, _2, f.apply(_3));
   }
 
   @Override
