@@ -391,6 +391,70 @@ class AnalysioloTest {
     assertEquals(Result.success(expPrices2), resultPrices(tf, stocks));
   }
 
+  // avgCost (date, period): avgCost for each stock over filtered transactions, always filter stocks
+  //  - no date or period -> all transactions
+  //  - date -> filter transactions up to & incl. date
+  //  - period -> transactions between two dates (inclusive)
+  @SuppressWarnings("ConstantConditions")
+  @Test
+  void avgCostTest() {
+    DB db = prepDBOptions();
+    TimeFilter tf = new TimeFilter();
+    File txFile;
+    java.util.List<String> stocks;
+    String dateStr1 = "2021-10-12";
+    String dateStr2 = "2022-11-07";
+
+    // 1. new database, ingest txs -> stock filter AVUV
+    db.opt.newDBPath = new File("src/test/java/testdb.mv.db");
+    txFile = new File("src/test/java/testdata.txt");
+    stocks = java.util.List.of("AVUV");
+    Result<Map<Symbol, List<BigDecimal>>> res = Analysiolo.avgCost_(db, tf, stocks, txFile);
+
+    Map<Symbol, List<BigDecimal>> expRes1 =
+        Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("AVUV"),
+            List.of(new BigDecimal("38.059"), new BigDecimal("29.000"), new BigDecimal("40.000")));
+    res.forEachOrFail(m -> assertEquals(expRes1, m)).forEach(Assertions::fail);
+
+    // 2. existing database, no ingesting -> stock filter TSLA, VTI
+    db.opt.dbPath = new File("src/test/java/testdb.mv.db");
+    db.opt.newDBPath = null;
+    txFile = null;
+    stocks = java.util.List.of("TSLA", "VTI");
+    Map<Symbol, List<BigDecimal>> expRes2 =
+        Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("VTI"),
+            List.of(new BigDecimal("43.109"), new BigDecimal("40.110"), new BigDecimal("90.000")));
+    res = Analysiolo.avgCost_(db, tf, stocks, txFile);
+    res.forEachOrFail(m -> assertEquals(expRes2, m)).forEach(Assertions::fail);
+
+    // 3. existing database, no ingesting -> date & single stock VTI
+    tf = prepTimeFilterOptions();
+    tf.opt.date = LocalDate.parse(dateStr1);
+    stocks = java.util.List.of("VTI");
+    Map<Symbol, List<BigDecimal>> expRes3 =
+        Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("VTI"),
+            List.of(new BigDecimal("85.465"), new BigDecimal("40.110"), new BigDecimal("90.000")));
+    res = Analysiolo.avgCost_(db, tf, stocks, txFile);
+    res.forEachOrFail(m -> assertEquals(expRes3, m)).forEach(Assertions::fail);
+
+    // 4. existing database, no ingesting -> two periods & single stock VTI
+    tf.opt.date = null;
+    tf.opt.period = List.of(dateStr1, dateStr2);
+    Map<Symbol, List<BigDecimal>> expRes4 =
+        Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("VTI"),
+            List.of(new BigDecimal("43.121"), new BigDecimal("41.200"), new BigDecimal("90.000")));
+    res = Analysiolo.avgCost_(db, tf, stocks, txFile);
+    res.forEachOrFail(m -> assertEquals(expRes4, m)).forEach(Assertions::fail);
+
+    // No transaction with filtered stock
+    stocks = java.util.List.of("TSLA");
+    res = Analysiolo.avgCost_(db, tf, stocks, txFile);
+    assertTrue(res.isEmpty());
+
+    // Clean up database
+    assertSuccess(deleteDB(db));
+  }
+
   @Test
   void parseIntoDataSource() {
     // Read in input data, make sure no shares are negative after any transaction

@@ -1,10 +1,13 @@
 package Analysiolo;
 
 import functionalUtilities.List;
+import functionalUtilities.Map;
 import functionalUtilities.Result;
 import functionalUtilities.Tuple;
+import functionalUtilities.Tuple3;
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.concurrent.Callable;
@@ -382,15 +385,29 @@ public class Analysiolo implements Callable<Integer> {
         }
     }
 
-    static Result<BigDecimal> avgCost_(DB db, File txFile) {
-        var f = prepTransactions(db, txFile);
-        // - avgCost (date, period): avgCost for each stock over filtered transactions, always filter stocks
-        //    - no date or period -> all transactions
-        //    - date -> filter transactions up to & incl. date
-        //    - period -> transactions between two dates (inclusive)
-        // TimeFilter date/period
-        // Stockfilter
-        return Result.failure("not implemented");
+    static Result<Map<Symbol, List<BigDecimal>>> avgCost_(DB db,
+        TimeFilter tf,
+            java.util.List<String> symbols, File txFile) {
+        Result<Map<Symbol, List<Transaction>>> filteredTxs = prepTransactions(db, txFile)
+            .map(lTx -> lTx.filter(tx -> tx.getNumShares() > 0))
+            .map(lTx -> lTx.filter(Utilities.symbolComparator(symbols)))
+            .map(lTx -> lTx.filter(Utilities.timePeriodComparator(tf)))
+            .mapEmptyCollection()
+            .map(lTx -> lTx.groupBy(Transaction::getSymbol));
+
+        return filteredTxs.map(m -> m
+            .mapVal(lTx -> lTx
+                .foldLeft(new Tuple3<>(new Tuple<>(BigDecimal.ZERO, 0), lTx.head().getPrice(), lTx.head().getPrice()),
+                    t3 -> tx -> {
+                        BigDecimal min = tx.getPrice().min(t3._2);
+                        BigDecimal max = tx.getPrice().max(t3._3);
+                        BigDecimal totCost = t3._1._1.add(
+                            tx.getPrice().multiply(new BigDecimal(tx.getNumShares())));
+                        int totNum = t3._1._2 + tx.getNumShares();
+                        return new Tuple3<>(new Tuple<>(totCost, totNum), min, max);
+                    })
+                .mapVal1(t -> t._1.divide(new BigDecimal(t._2), RoundingMode.HALF_UP)))
+            .mapVal(t3 -> List.of(t3._1, t3._2, t3._3)));
     }
 
     @Command(name = "avgCost")
@@ -408,7 +425,14 @@ public class Analysiolo implements Callable<Integer> {
             dryRunOutput();
             return 0;
         } else {
-            Result<BigDecimal> output = avgCost_(db, txFile);
+            List<String> colNames = List.of("avg cost", "min price", "max price");
+            Result<Map<Symbol, List<BigDecimal>>> output =
+                avgCost_(db, tf, stockFilter, txFile);
+            var data = output
+                .map(out -> new Tuple<>(colNames, out))
+                .map(t -> Utilities.applyTheme(t, Utilities.themeSimple()))
+                .map(Utilities::renderTable);
+            System.out.println("Cost of purchase for stocks " + stockFilter + " between dates " + " ?????");
             output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
                 + " " + err));
             return output.isFailure() ? -1 : 0;
