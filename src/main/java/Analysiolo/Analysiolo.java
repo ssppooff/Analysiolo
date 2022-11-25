@@ -204,7 +204,7 @@ public class Analysiolo implements Callable<Integer> {
     }
 
     static void dryRunOutput() {
-        System.out.println("Outputting list");
+        System.out.println("Outputting result");
     }
 
     static Result<List<Transaction>> list_(DB db, TimeFilter tf,
@@ -387,8 +387,7 @@ public class Analysiolo implements Callable<Integer> {
     }
 
     static Result<Map<Symbol, List<BigDecimal>>> avgCost_(DB db,
-        TimeFilter tf,
-            java.util.List<String> symbols, File txFile) {
+        TimeFilter tf, java.util.List<String> symbols, File txFile) {
         Result<Map<Symbol, List<Transaction>>> filteredTxs = prepTransactions(db, txFile)
             .map(lTx -> lTx.filter(tx -> tx.getNumShares() > 0))
             .map(lTx -> lTx.filter(Utilities.symbolComparator(symbols)))
@@ -415,22 +414,29 @@ public class Analysiolo implements Callable<Integer> {
     }
 
     @Command(name = "avgCost")
-    int avgCost(@Mixin DB db, @Mixin TimeFilter tf) {
+    int avgCost(@Mixin DB db, @Mixin TimeFilter tf) throws Exception {
         if (tf != null && tf.opt != null && tf.opt.date != null) {
             System.out.println("--date option not supported with avgCost command");
             return -1;
         }
 
+        Result<String> dbValidation = validationDBOptions(db);
+        if (dbValidation.isFailure()) {
+            dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
+            return -1;
+        }
+
+
         if (dryRun) {
-            // TODO: avgCost dry-run
-            // -- TimeFilter date/period
-            // -- Stockfilter
-            // -- DB create, use existing
-            // -- Ingest txFile
+            dbValidation.forEach(System.out::println);
+            dryRunFile(txFile);
+            dryRunStockFilter(stockFilter);
+            dryRunTimeFiler(tf);
+            System.out.println("Computing avg purchase cost over filtered transactions for each "
+                + "stock");
             dryRunOutput();
             return 0;
         } else {
-            // TODO: avgCost correct output
             List<String> colNames = List.of("avg cost", "min", "max");
             Result<Map<Symbol, List<BigDecimal>>> data =
                 avgCost_(db, tf, stockFilter, txFile);
