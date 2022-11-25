@@ -446,6 +446,7 @@ public class Analysiolo implements Callable<Integer> {
     }
 
     static Result<BigDecimal> twrr_(DB db, File txFile) {
+        // TODO twrr_
         // - twrr (date, period): 1) filtered transactions, always filter stocks 2) twrr until specific date
         //    - no date or period -> all transactions
         //    - date -> transactions up to & incl. date, twrr on date
@@ -460,6 +461,7 @@ public class Analysiolo implements Callable<Integer> {
         }
 
         if (dryRun) {
+            // TODO twrr dry-run
             // -- TimeFilter date/period
             // -- Stockfilter
             // -- DB create, use existing
@@ -467,6 +469,7 @@ public class Analysiolo implements Callable<Integer> {
             dryRunOutput();
             return 0;
         } else {
+            // TODO twrr correct output
             Result<BigDecimal> output = twrr_(db, txFile);
             output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
                 + " " + err));

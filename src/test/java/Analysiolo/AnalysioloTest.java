@@ -456,6 +456,11 @@ class AnalysioloTest {
   }
 
   @Test
+  void twrrTest() {
+    // TODO twrrTest
+  }
+
+  @Test
   void parseIntoDataSource() {
     // Read in input data, make sure no shares are negative after any transaction
     Result<List<Transaction>> listTx = readTxFromFile(path);
