@@ -457,6 +457,41 @@ public class Analysiolo implements Callable<Integer> {
         //    - no date or period -> all transactions
         //    - date -> transactions up to & incl. date, twrr on date
         return Result.failure("not implemented");
+    static Result<List<BigDecimal>> growthFactors(List<Transaction> lTx, LocalDate endDate) {
+        List<Transaction> lTx2 = lTx.tail()
+                                    .append(Transaction.transaction(endDate, "", 1, BigDecimal.ZERO));
+        List<Result<BigDecimal>> factors = List.list();
+        var foo = lTx.zip(lTx2).foldLeft(new Tuple<>(factors, Portfolio.empty()),
+            t -> txs -> {
+                var pf = t._2.updateWith(txs._1).getOrThrow();
+
+                Result<BigDecimal> Vinit = txs._1.getNumShares() > 0 // BUY
+                    ? pf.valueOn(txs._1.getDate()).map(v -> v.add(premium(txs._1)))
+                    : pf.valueOn(txs._1.getDate());
+                Result<BigDecimal> Vend = txs._2.getNumShares() < 0 // SELL
+                    ? pf.valueOn(txs._2.getDate()).map(v -> v.add(premium(txs._2)))
+                    : pf.valueOn(txs._2.getDate());
+
+                // TODO instead of List<Tuple<BD, BD>> in each iteration multiply w/ accumulator
+                List<Result<BigDecimal>> result = t._1
+                    .prepend(Result
+                        .map2(Vinit, Vend,
+                            init -> end -> end.divide(init, RoundingMode.HALF_UP)));
+
+                return new Tuple<>(result, pf);
+            })._1;
+
+        return List.flattenResult(foo);
+    }
+
+    static BigDecimal premium(Transaction tx) {
+        Result<BigDecimal> f = Stock.stock(tx.getSymbol().getSymbolStr())
+                                    .flatMap(s -> s.getPriceOn(tx.getDate()))
+                                    .map(price -> tx.getPrice()
+                                                    .subtract(price)
+                                                    .multiply(new BigDecimal(tx.getNumShares())));
+        // TODO clean-up
+        return f.getOrThrow();
     }
 
     @Command(name = "twrr")

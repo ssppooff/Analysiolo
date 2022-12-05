@@ -95,6 +95,10 @@ public class Portfolio {
         .subtract(BigDecimal.ONE));
   }
 
+  public static Portfolio empty() {
+    return new Portfolio(Map.empty());
+  }
+
   public static Result<Portfolio> portfolio(List<Transaction> transactions) {
       return Parser.parseStockPositions(transactions).map(Portfolio::new);
   }
