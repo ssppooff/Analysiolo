@@ -131,9 +131,9 @@ final class Utilities {
             return List.of(tf.opt.date);
         else {
             List<LocalDate> period = List.of(tf.opt.period).map(Utilities::parsePeriod);
-            return period.size() == 2 || period.head().equals(LocalDate.now())
-                ? period
-                : period.append(LocalDate.now());
+            return period.size() == 1
+                ? period.append(LocalDate.now())
+                : period;
         }
     }
 
