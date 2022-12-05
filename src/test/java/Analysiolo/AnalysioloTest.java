@@ -568,4 +568,37 @@ class AnalysioloTest {
     // Close data source
     assertSuccess(res.map(Tuple::_2).flatMap(DataSource::close));
   }
+
+  @Test
+  void growthFactorsTest() {
+//    var stock = Stock.stock("VTI", LocalDate.parse("2022-06-10")).getOrThrow();
+//    var foo = List.of(
+//        new Tuple<>(LocalDate.parse("2022-08-10"), stock.getPriceOn(LocalDate.parse("2022-08-10"))),
+//        new Tuple<>(LocalDate.parse("2022-09-10"), stock.getPriceOn(LocalDate.parse("2022-09-10"))),
+//        new Tuple<>(LocalDate.parse("2022-10-10"), stock.getPriceOn(LocalDate.parse("2022-10-10"))),
+//        new Tuple<>(LocalDate.parse("2022-11-10"), stock.getPriceOn(LocalDate.parse("2022-11-10"))),
+//        new Tuple<>(LocalDate.parse("2022-11-28"), stock.getPriceOn(LocalDate.parse("2022-11-28"))));
+//    List.flattenResult(foo.map(Tuple::flattenResultRight)).forEachOrFail(System.out::println)
+//        .forEach(err -> System.out.println("err: " + err));
+
+    /* VTI prices
+    2022-08-10: 211.270004
+    2022-09-10: 204.449997
+    2022-10-10: 180.949997
+    2022-11-10: 198.139999
+    2022-11-28: 198.270004
+    */
+
+    List<Transaction> lTx = List.of(
+        Transaction.transaction(LocalDate.parse("2022-08-10"), "VTI", 10,
+            new BigDecimal("211.270004")),
+        Transaction.transaction(LocalDate.parse("2022-09-10"), "VTI", -5,
+            new BigDecimal("210.000000")),
+        Transaction.transaction(LocalDate.parse("2022-10-10"), "VTI", 2,
+            new BigDecimal("181.000000")),
+        Transaction.transaction(LocalDate.parse("2022-11-10"), "VTI", -6,
+            new BigDecimal("180.00000")));
+    var f = Analysiolo.growthFactors(lTx, (LocalDate.parse("2022-11-28")));
+    f.forEachOrFail(System.out::println).forEach(err -> System.out.println("err: " + err));
+  }
 }
