@@ -58,7 +58,7 @@ $ analysiolo demo.db
 - list (date, period): show transactions, always filter stocks
     - no date or period: all transactions
     - date -> every transactions up to & incl. date
-    - period -> every transactions inside period (inclusive)
+    - period -> transactions between two dates (inclusive)
 - value (date, period): 1) filtered transactions, always filter stocks 2) value on specific date
     - no date or period -> all transactions, value today
     - date -> transactions up to & incl. date, value on date
@@ -388,10 +388,8 @@ public class Analysiolo implements Callable<Integer> {
 
     static Result<Map<Symbol, List<BigDecimal>>> avgCost_(DB db,
         TimeFilter tf, java.util.List<String> symbols, File txFile) {
-        Result<Map<Symbol, List<Transaction>>> filteredTxs = prepTransactions(db, txFile)
+        Result<Map<Symbol, List<Transaction>>> filteredTxs = list_(db, tf, symbols, txFile)
             .map(lTx -> lTx.filter(tx -> tx.getNumShares() > 0))
-            .map(lTx -> lTx.filter(Utilities.symbolComparator(symbols)))
-            .map(lTx -> lTx.filter(Utilities.timePeriodComparator(tf)))
             .mapEmptyCollection()
             .map(lTx -> lTx.groupBy(Transaction::getSymbol));
 
