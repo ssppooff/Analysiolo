@@ -458,6 +458,25 @@ class AnalysioloTest {
   @Test
   void twrrTest() {
     // TODO twrrTest
+    /*
+    DB db = prepDBOptions();
+    TimeFilter tf = new TimeFilter();
+    File txFile;
+    java.util.List<String> stocks;
+    String dateStr1 = "2021-10-12";
+    String dateStr2 = "2022-11-07";
+
+    // 1. new database, ingest txs -> stock filter AVUV
+    db.opt.newDBPath = new File("src/test/java/testdb.mv.db");
+    txFile = new File("src/test/java/testdata.txt");
+    stocks = java.util.List.of("AVUV");
+    Result<Map<Symbol, List<BigDecimal>>> res = Analysiolo.avgCost_(db, tf, stocks, txFile);
+
+    Map<Symbol, List<BigDecimal>> expRes1 =
+        Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("AVUV"),
+            List.of(new BigDecimal("38.059"), new BigDecimal("29.000"), new BigDecimal("40.000")));
+    res.forEachOrFail(m -> assertEquals(expRes1, m)).forEach(Assertions::fail);
+     */
   }
 
   @Test
