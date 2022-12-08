@@ -70,6 +70,7 @@ $ analysiolo demo.db
 - twrr (date, period): 1) filtered transactions, always filter stocks 2) twrr until specific date
     - no date or period -> all transactions
     - date -> transactions up to & incl. date, twrr on date
+    - period -> transactions inside period (inclusive), twrr on second/last date
 
 * Specifying time periods
 * -> if only one date: taken as from-date with end-date today
@@ -449,12 +450,34 @@ public class Analysiolo implements Callable<Integer> {
         }
     }
 
-    static Result<BigDecimal> twrr_(DB db, File txFile) {
-        // TODO twrr_
+    static Result<BigDecimal> twrr_(DB db, TimeFilter tf, java.util.List<String> symbols,
+        File txFile) {
         // - twrr (date, period): 1) filtered transactions, always filter stocks 2) twrr until specific date
         //    - no date or period -> all transactions
         //    - date -> transactions up to & incl. date, twrr on date
-        return Result.failure("not implemented");
+        //    - period -> transactions inside period (inclusive), twrr on second/last date
+
+        // TODO twrr_
+        // Filter transactions based on filters
+        List<Transaction> lTx = list_(db, tf, symbols, txFile).getOrThrow();
+
+        LocalDate endDate = Utilities.parseTimeFilter(tf).last().getOrThrow();
+        // TODO: fail-fast for Res.fail & Res.empty
+        // TODO list() -> streams()
+        Result<List<BigDecimal>> growthFactors = growthFactors(lTx, endDate);
+
+        return growthFactors.map(l -> l.reduce(BigDecimal::multiply)
+                                       .subtract(BigDecimal.ONE));
+
+        /* How to compute TWRR
+           - The time-weighted return breaks up the return on an investment portfolio into separate
+             intervals based on whether money was added or withdrawn from the fund.
+           - The time-weighted return measure is also called the geometric mean return, which is a
+             complicated way of stating that the returns for each sub-period are multiplied by each
+             other.
+         */
+    }
+
     static Result<List<BigDecimal>> growthFactors(List<Transaction> lTx, LocalDate endDate) {
         List<Transaction> lTx2 = lTx.tail()
                                     .append(Transaction.transaction(endDate, "", 1, BigDecimal.ZERO));
@@ -509,7 +532,7 @@ public class Analysiolo implements Callable<Integer> {
             return 0;
         } else {
             // TODO twrr correct output
-            Result<BigDecimal> output = twrr_(db, txFile);
+            Result<BigDecimal> output = twrr_(db, tf, stockFilter, txFile);
             output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
                 + " " + err));
             return output.isFailure() ? -1 : 0;
