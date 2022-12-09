@@ -3,13 +3,13 @@ package Analysiolo;
 import static Analysiolo.Analysiolo.TimeFilter;
 
 import Analysiolo.Analysiolo.DB;
-import functionalUtilities.FileReader;
-import functionalUtilities.List;
-import functionalUtilities.Map;
-import functionalUtilities.Result;
-import functionalUtilities.Stream;
-import functionalUtilities.Tuple;
-import functionalUtilities.Tuple3;
+import ch.cottier.functionalUtilities.FileReader;
+import ch.cottier.functionalUtilities.List;
+import ch.cottier.functionalUtilities.Map;
+import ch.cottier.functionalUtilities.Result;
+import ch.cottier.functionalUtilities.Stream;
+import ch.cottier.functionalUtilities.Tuple;
+import ch.cottier.functionalUtilities.Tuple3;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -19,10 +19,10 @@ import java.util.Comparator;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import stockAPI.DataSource;
-import stockAPI.Parser;
-import stockAPI.Symbol;
-import stockAPI.Transaction;
+import ch.cottier.stockAPI.DataSource;
+import ch.cottier.stockAPI.Parser;
+import ch.cottier.stockAPI.Symbol;
+import ch.cottier.stockAPI.Transaction;
 
 final class Utilities {
     private enum Theme {

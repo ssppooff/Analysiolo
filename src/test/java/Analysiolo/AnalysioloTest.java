@@ -8,11 +8,11 @@ import Analysiolo.Analysiolo.DB;
 import Analysiolo.Analysiolo.DB.ExclusiveOptions;
 import Analysiolo.Analysiolo.TimeFilter;
 import Analysiolo.Analysiolo.TimeFilter.ExclusiveTFOptions;
-import functionalUtilities.FileReader;
-import functionalUtilities.List;
-import functionalUtilities.Map;
-import functionalUtilities.Result;
-import functionalUtilities.Tuple;
+import ch.cottier.functionalUtilities.FileReader;
+import ch.cottier.functionalUtilities.List;
+import ch.cottier.functionalUtilities.Map;
+import ch.cottier.functionalUtilities.Result;
+import ch.cottier.functionalUtilities.Tuple;
 import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -20,10 +20,10 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import stockAPI.DataSource;
-import stockAPI.Parser;
-import stockAPI.Symbol;
-import stockAPI.Transaction;
+import ch.cottier.stockAPI.DataSource;
+import ch.cottier.stockAPI.Parser;
+import ch.cottier.stockAPI.Symbol;
+import ch.cottier.stockAPI.Transaction;
 
 /* TODO Current task & subtasks:
     * Write CLI parser so that it can be used as a cLI tool

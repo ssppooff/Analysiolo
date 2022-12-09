@@ -1,10 +1,10 @@
 package Analysiolo;
 
-import functionalUtilities.List;
-import functionalUtilities.Map;
-import functionalUtilities.Result;
-import functionalUtilities.Tuple;
-import functionalUtilities.Tuple3;
+import ch.cottier.functionalUtilities.List;
+import ch.cottier.functionalUtilities.Map;
+import ch.cottier.functionalUtilities.Result;
+import ch.cottier.functionalUtilities.Tuple;
+import ch.cottier.functionalUtilities.Tuple3;
 import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -18,11 +18,11 @@ import picocli.CommandLine.HelpCommand;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ScopeType;
-import stockAPI.DataSource;
-import stockAPI.Portfolio;
-import stockAPI.Stock;
-import stockAPI.Symbol;
-import stockAPI.Transaction;
+import ch.cottier.stockAPI.DataSource;
+import ch.cottier.stockAPI.Portfolio;
+import ch.cottier.stockAPI.Stock;
+import ch.cottier.stockAPI.Symbol;
+import ch.cottier.stockAPI.Transaction;
 
 /* TODO:
 

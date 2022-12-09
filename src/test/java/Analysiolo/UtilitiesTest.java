@@ -6,18 +6,18 @@ import Analysiolo.Analysiolo.DB;
 import Analysiolo.Analysiolo.DB.ExclusiveOptions;
 import Analysiolo.Analysiolo.TimeFilter;
 import Analysiolo.Analysiolo.TimeFilter.ExclusiveTFOptions;
-import functionalUtilities.List;
-import functionalUtilities.Map;
-import functionalUtilities.Result;
-import functionalUtilities.Tuple;
+import ch.cottier.functionalUtilities.List;
+import ch.cottier.functionalUtilities.Map;
+import ch.cottier.functionalUtilities.Result;
+import ch.cottier.functionalUtilities.Tuple;
 import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
-import stockAPI.Symbol;
-import stockAPI.Transaction;
+import ch.cottier.stockAPI.Symbol;
+import ch.cottier.stockAPI.Transaction;
 
 class UtilitiesTest {
   String pathAdditionalError = "src/test/java/testdata_additional_error.txt";
