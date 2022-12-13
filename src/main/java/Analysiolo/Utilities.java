@@ -50,6 +50,9 @@ final class Utilities {
 
     static Result<DataSource> parseDbOption(DB db) {
         try {
+            if (db.opt == null)
+                return Result.failure("db.opt is null");
+
             String dbPath = removePossibleExtensions(db.opt.dbPath == null
                 ? db.opt.newDBPath.getCanonicalPath()
                 : db.opt.dbPath.getCanonicalPath());

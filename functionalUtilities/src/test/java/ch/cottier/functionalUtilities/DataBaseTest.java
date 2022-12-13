@@ -9,7 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 //import ch.cottier.stockAPI.Transaction;
 
 @SuppressWarnings({"SqlNoDataSourceInspection", "SqlDialectInspection"})
