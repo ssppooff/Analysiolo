@@ -127,8 +127,7 @@ class UtilitiesTest {
 
     db.opt = new ExclusiveOptions();
     db.opt.dbPath = null;
-    db.opt.newDBPath =
-        new File("src/test/java/testdb.mv.db");
+    db.opt.newDBPath = new File("src/test/java/testdb.mv.db");
     assertSuccess(Utilities.parseDbOption(db));
     assertTrue(db.opt.newDBPath.exists());
     assertTrue(db.opt.newDBPath.delete());
