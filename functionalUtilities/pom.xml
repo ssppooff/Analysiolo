@@ -2,14 +2,14 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <parent>
-    <artifactId>Portfolio-Project</artifactId>
-    <groupId>org.example</groupId>
-    <version>1.0-SNAPSHOT</version>
-  </parent>
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>ch.cottier</groupId>
+  <parent>
+    <artifactId>Portfolio-Project</artifactId>
+    <groupId>ch.cottier</groupId>
+    <version>1.0-SNAPSHOT</version>
+  </parent>
+
   <artifactId>functionalUtilities</artifactId>
 
   <properties>
@@ -19,21 +19,11 @@
   </properties>
 
   <dependencies>
-<!--    <dependency>-->
-<!--      <groupId>org.example</groupId>-->
-<!--      <artifactId>Portfolio-Project</artifactId>-->
-<!--      <version>1.0-SNAPSHOT</version>-->
-<!--    </dependency>-->
     <!--suppress VulnerableLibrariesLocal -->
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
       <version>2.1.214</version>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-nop</artifactId>
-      <version>2.0.5</version>
     </dependency>
   </dependencies>
 </project>
