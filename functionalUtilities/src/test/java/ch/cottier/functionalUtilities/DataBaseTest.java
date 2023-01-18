@@ -1,6 +1,7 @@
 package ch.cottier.functionalUtilities;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -31,24 +32,20 @@ class DataBaseTest {
 
   @Test
   void h2TestSingleRow() {
-    // TODO get rid of dependency on yahooStock module
-    // Open connection to database
     try (Connection db = DriverManager.getConnection(DB_INMEM);
         Statement statement = db.createStatement()) {
       statement.execute(SQL_CREATE_TABLE);
       statement.execute(SQL_INSERT);
       ResultSet res = statement.executeQuery(SQL_QUERY);
-//      Transaction tx= null;
-//      while (res.next()) {
-//        tx = Transaction.transaction(
-//            res.getObject("date", LocalDate.class),
-//            res.getString("symbol"),
-//            res.getInt("numShares"),
-//            res.getBigDecimal("price"));
-//      }
 
-//      Transaction expTx = Transaction.transaction(date, symbol, nShares, price);
-//      assertEquals(expTx, tx);
+      if (!res.next()) {
+        res.close();
+        fail();
+      }
+      assertEquals(date, res.getObject("date", LocalDate.class));
+      assertEquals("VTI", res.getString("symbol"));
+      assertEquals(10, res.getInt("numShares"));
+      assertEquals(0, BigDecimal.valueOf(40.11).compareTo(res.getBigDecimal("price")));
       res.close();
     } catch (SQLException e) {
       System.out.println("SQLException: " + e);
