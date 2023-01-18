@@ -1,5 +1,6 @@
 package ch.cottier.app;
 
+import ch.cottier.app.FooOptions.TFOptions;
 import ch.cottier.functionalUtilities.List;
 import ch.cottier.functionalUtilities.Map;
 import ch.cottier.functionalUtilities.Result;
@@ -13,15 +14,12 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
-import java.util.concurrent.Callable;
 import picocli.CommandLine;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.HelpCommand;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.ScopeType;
 
 /* TODO:
 
@@ -91,60 +89,52 @@ $ analysiolo price --filter=TSLA --period 2021-10-10 (from_date until now, every
 $ analysiolo price --filter=TSLA --period inception (not supported)
 * */
 
+class FooOptions {
+    @SuppressWarnings("FieldMayBeFinal")
+    @Option(names = {"--dry-run", "-n"})
+    boolean dryRun = false;
+
+    @Option(names = {"--ingest", "--parse", "--file", "-f"},
+        description = "path to file with transactions to process")
+    File txFile;
+
+    @Option(names = "--filter", split = ",", arity = "1..*")
+    java.util.List<String> stockFilter;
+
+    @ArgGroup(exclusive = true)
+    public DBOptions dbOptions;
+    static class DBOptions {
+        @Option(names = {"--create-database",
+            "-c"}, description = "create a new database")
+        File newDBPath;
+
+        @Option(names = {"--database", "-d"}, description = "Path to database")
+        File dbPath;
+    }
+
+    @ArgGroup(exclusive = true)
+    public TFOptions tfOptions;
+    static class TFOptions {
+        @Option(names = "--period", arity = "1..2")
+        java.util.List<String> period;
+
+        @Option(names = "--date", arity = "1")
+        LocalDate date;
+    }
+}
+
 @SuppressWarnings("unused")
 @Command(name = "analysiolo", version = "analysiolio 0.1", mixinStandardHelpOptions = true,
-description = "Tool for simple analysis of a stock portfolio based on transactions.",
+    description = "Tool for simple analysis of a stock portfolio based on transactions.",
     subcommands = { HelpCommand.class })
 public class Analysiolo {
 
     Analysiolo() {}
 
-    @Mixin
-    DB db;
-
-    static class DB {
-        @ArgGroup
-        public ExclusiveOptions opt;
-
-        static class ExclusiveOptions {
-            @Option(names = {"--create-database",
-                "-c"}, description = "create a new database")
-            File newDBPath;
-
-            @Option(names = {"--database", "-d"}, description = "Path to database")
-            File dbPath;
-        }
-    }
-
-    @Mixin
-    TimeFilter tf;
-
-    static class TimeFilter {
-        @ArgGroup
-        public ExclusiveTFOptions opt;
-
-        static class ExclusiveTFOptions {
-            @Option(names = "--period", arity = "1..2", required = true)
-            java.util.List<String> period;
-
-            @Option(names = "--date", arity = "1", required = true)
-            LocalDate date;
-        }
-    }
-
-    @SuppressWarnings("FieldMayBeFinal")
-    @Option(names = {"--dry-run", "-n"}, scope = ScopeType.INHERIT)
-    private boolean dryRun = false;
-
-    @Option(names = {"--ingest", "--parse", "--file", "-f"}, description = "path to file with "
-        + "transactions to process", scope = ScopeType.INHERIT)
-    File txFile;
-
-    @Option(names = "--filter", split = ",", arity = "1..*", scope = ScopeType.INHERIT)
-    private java.util.List<String> stockFilter;
+    FooOptions fooOptions;
 
     // Business logic goes in here
-    public Integer call() throws Exception {
+    public Integer call() {
         return 0;
     }
 
@@ -163,8 +153,8 @@ public class Analysiolo {
             System.out.println("Filtering transactions for following stocks " + stockFilter);
     }
 
-    static void dryRunTimeFiler(TimeFilter tf) {
-        if (tf != null && tf.opt != null) {
+    static void dryRunTimeFiler(TFOptions tf) {
+        if (tf != null) {
             List<LocalDate> f = Utilities.parseTimeFilter(tf);
             if (f.size() == 1)
                 System.out.println("Filtering for transactions before " + f.get(0));
@@ -178,31 +168,31 @@ public class Analysiolo {
         System.out.println("Outputting result");
     }
 
-    static Result<List<Transaction>> list_(DB db, TimeFilter tf,
-        java.util.List<String> symbols, File txFile) {
-        return Utilities.prepTransactions(db, txFile)
-                        .map(txs -> txs.filter(Utilities.symbolComparator(symbols)))
-                        .map(txs -> txs.filter(Utilities.timePeriodComparator(tf)))
+    static Result<List<Transaction>> list_(FooOptions fooOptions) {
+        return Utilities.prepTransactions(fooOptions.dbOptions, fooOptions.txFile)
+                        .map(txs -> txs.filter(Utilities.symbolComparator(fooOptions.stockFilter)))
+                        .map(txs -> txs.filter(Utilities.timePeriodComparator(fooOptions.tfOptions)))
                         .mapEmptyCollection();
     }
 
-    @Command(name = "list")
-    int list(@Mixin DB db, @Mixin TimeFilter tf) throws Exception {
-        Result<String> dbValidation = Utilities.validationDBOptions(db);
+    @Command(name = "list",
+        description = "Tool for simple analysis of a stock portfolio based on transactions.")
+    int list(@Mixin FooOptions fooOptions) throws Exception {
+        Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
         if (dbValidation.isFailure()) {
             dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
             return -1;
         }
 
-        if (dryRun) {
+        if (fooOptions.dryRun) {
             dbValidation.forEach(System.out::println);
-            dryRunFile(txFile);
-            dryRunStockFilter(stockFilter);
-            dryRunTimeFiler(tf);
+            dryRunFile(fooOptions.txFile);
+            dryRunStockFilter(fooOptions.stockFilter);
+            dryRunTimeFiler(fooOptions.tfOptions);
             dryRunOutput();
             return 0;
         } else {
-            Result<List<Transaction>> lTx = list_(db, tf, stockFilter, txFile);
+            Result<List<Transaction>> lTx = list_(fooOptions);
 
             lTx.failIfEmpty("No transaction corresponds to filter criteria")
                .forEachOrFail(l -> l.forEach(System.out::println))
@@ -212,7 +202,7 @@ public class Analysiolo {
     }
 
     static Result<List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>>>
-        price_(TimeFilter tf, java.util.List<String> symbols) {
+        price_(FooOptions.TFOptions tf, java.util.List<String> symbols) {
             return List.flattenResult(
                 Utilities.parseTimeFilter(tf)
                     .map(date -> Stock.stocks(symbols)
@@ -225,43 +215,43 @@ public class Analysiolo {
     }
 
     @Command(name = "price")
-    int price(@Mixin DB db, @Mixin TimeFilter tf) {
+    int price(@Mixin FooOptions fooOptions) {
+        java.util.List<String> stockFilter = fooOptions.stockFilter;
+        FooOptions.TFOptions tf = fooOptions.tfOptions;
+        FooOptions.DBOptions db = fooOptions.dbOptions;
         if (stockFilter == null || stockFilter.isEmpty()) {
             System.out.println("At least one ticker symbol must be given");
             return -1;
         }
 
-        if (tf != null && tf.opt != null) {
-            if (tf.opt.date != null && tf.opt.date.isAfter(LocalDate.now())) {
+        if (tf != null) {
+            if (tf.date != null && tf.date.isAfter(LocalDate.now())) {
                 System.out.println("--date cannot be in the future");
                 return -1;
             }
 
-            if (tf.opt.period != null) {
-                if (tf.opt.period.get(0).equals("inception")) {
+            if (tf.period != null) {
+                if (tf.period.get(0).equals("inception")) {
                     System.out.println("--period inception not supported with command price");
                     return -1;
                 }
-                if (tf.opt.period.size() == 2) {
-                    try {
-                        LocalDate d = LocalDate.parse(tf.opt.period.get(1));
-                        if (d.isAfter(LocalDate.now())) {
-                            System.out.println("--period cannot include the future");
-                            return -1;
-                        }
-                    } catch (DateTimeParseException ignore) {
+                if (tf.period.size() == 2) {
+                    LocalDate d = LocalDate.parse(tf.period.get(1));
+                    if (d.isAfter(LocalDate.now())) {
+                        System.out.println("--period cannot include the future");
+                        return -1;
                     }
                 }
             }
         }
 
-        if (db.opt != null)
+        if (db != null)
             System.out.println("Database ignored with command price");
 
-        if (txFile != null)
+        if (fooOptions.txFile != null)
             System.out.println("Transactions ignored with command price");
 
-        if (dryRun) {
+        if (fooOptions.dryRun) {
             List<LocalDate> dates = Utilities.parseTimeFilter(tf);
             StringBuilder s = new StringBuilder();
             s.append("Getting prices for ")
@@ -279,7 +269,7 @@ public class Analysiolo {
             System.out.println(s);
             return 0;
         } else {
-            Result<String> output = price_(tf, stockFilter)
+            Result<String> output = price_(fooOptions.tfOptions, fooOptions.stockFilter)
                 .map(Utilities::changeFormat)
                 .map(t -> {
                     if (t._1.size() == 1)
@@ -297,12 +287,13 @@ public class Analysiolo {
         }
     }
 
-    static Result<List<Tuple<LocalDate, BigDecimal>>> value_(DB db, TimeFilter tf, java.util.List<String> symbols, File txFile) {
-        Result<List<Transaction>> lTx = Utilities.prepTransactions(db, txFile)
-                                                 .map(txs -> txs.filter(Utilities.symbolComparator(symbols)));
+    static Result<List<Tuple<LocalDate, BigDecimal>>> value_(FooOptions options) {
+        Result<List<Transaction>> lTx =
+            Utilities.prepTransactions(options.dbOptions, options.txFile)
+                     .map(txs -> txs.filter(Utilities.symbolComparator(options.stockFilter)));
 
         return List.flattenResult(
-            Utilities.parseTimeFilter(tf)
+            Utilities.parseTimeFilter(options.tfOptions)
                 .map(date -> lTx
                     .flatMap(txs -> valueOnDateFromTx(txs, date)
                         .map(value -> new Tuple<>(date, value)))))
@@ -316,19 +307,19 @@ public class Analysiolo {
     }
 
     @Command(name = "value")
-    int value(@Mixin DB db, @Mixin TimeFilter tf) throws Exception {
-        Result<String> dbValidation = Utilities.validationDBOptions(db);
+    int value(@Mixin FooOptions fooOptions) throws Exception {
+        Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
         if (dbValidation.isFailure()) {
             dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
             return -1;
         }
 
-        if (dryRun) {
+        if (fooOptions.dryRun) {
             dbValidation.forEach(System.out::println);
-            dryRunFile(txFile);
-            dryRunStockFilter(stockFilter);
+            dryRunFile(fooOptions.txFile);
+            dryRunStockFilter(fooOptions.stockFilter);
 
-            List<LocalDate> dates = Utilities.parseTimeFilter(tf);
+            List<LocalDate> dates = Utilities.parseTimeFilter(fooOptions.tfOptions);
             dates.forEach(date ->
                 System.out.println("Computing value of portfolio on date + " + date));
             if (dates.size() == 2)
@@ -337,7 +328,7 @@ public class Analysiolo {
             dryRunOutput();
             return 0;
         } else {
-            Result<List<Tuple<LocalDate, BigDecimal>>> output = value_(db, tf, stockFilter, txFile);
+            Result<List<Tuple<LocalDate, BigDecimal>>> output = value_(fooOptions);
             output.failIfEmpty("No transaction corresponds to filter criteria")
                   .forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
                       + " " + err));
@@ -345,9 +336,8 @@ public class Analysiolo {
         }
     }
 
-    static Result<Map<Symbol, List<BigDecimal>>> avgCost_(DB db,
-        TimeFilter tf, java.util.List<String> symbols, File txFile) {
-        Result<Map<Symbol, List<Transaction>>> filteredTxs = list_(db, tf, symbols, txFile)
+    static Result<Map<Symbol, List<BigDecimal>>> avgCost_(FooOptions options) {
+        Result<Map<Symbol, List<Transaction>>> filteredTxs = list_(options)
             .map(lTx -> lTx.filter(tx -> tx.getNumShares() > 0))
             .mapEmptyCollection()
             .map(lTx -> lTx.groupBy(Transaction::getSymbol));
@@ -371,24 +361,23 @@ public class Analysiolo {
     }
 
     @Command(name = "avgCost")
-    int avgCost(@Mixin DB db, @Mixin TimeFilter tf) throws Exception {
-        if (tf != null && tf.opt != null && tf.opt.date != null) {
+    int avgCost(@Mixin FooOptions fooOptions) throws Exception {
+        if (fooOptions.tfOptions != null && fooOptions.tfOptions.date != null) {
             System.out.println("--date option not supported with avgCost command");
             return -1;
         }
 
-        Result<String> dbValidation = Utilities.validationDBOptions(db);
+        Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
         if (dbValidation.isFailure()) {
             dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
             return -1;
         }
 
-
-        if (dryRun) {
+        if (fooOptions.dryRun) {
             dbValidation.forEach(System.out::println);
-            dryRunFile(txFile);
-            dryRunStockFilter(stockFilter);
-            dryRunTimeFiler(tf);
+            dryRunFile(fooOptions.txFile);
+            dryRunStockFilter(fooOptions.stockFilter);
+            dryRunTimeFiler(fooOptions.tfOptions);
             System.out.println("Computing avg purchase cost over filtered transactions for each "
                 + "stock");
             dryRunOutput();
@@ -396,20 +385,19 @@ public class Analysiolo {
         } else {
             List<String> colNames = List.of("avg cost", "min", "max");
             Result<Map<Symbol, List<BigDecimal>>> data =
-                avgCost_(db, tf, stockFilter, txFile);
+                avgCost_(fooOptions);
             var output = data
                 .map(out -> new Tuple<>(colNames, out))
                 .map(t -> Utilities.applyTheme(t, Utilities.themeSimple()))
                 .map(Utilities::renderTable);
             output.failIfEmpty("No transaction corresponds to filter criteria")
-            .forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
-                + " " + err));
+                  .forEachOrFail(System.out::println)
+                  .forEach(err -> System.out.println("Error: " + err));
             return data.isFailure() ? -1 : 0;
         }
     }
 
-    static Result<BigDecimal> twrr_(DB db, TimeFilter tf, java.util.List<String> symbols,
-        File txFile) {
+    static Result<BigDecimal> twrr_(FooOptions options) {
         // - twrr (date, period): 1) filtered transactions, always filter stocks 2) twrr until specific date
         //    - no date or period -> all transactions
         //    - date -> transactions up to & incl. date, twrr on date
@@ -417,9 +405,9 @@ public class Analysiolo {
 
         // TODO twrr_
         // Filter transactions based on filters
-        List<Transaction> lTx = list_(db, tf, symbols, txFile).getOrThrow();
+        List<Transaction> lTx = list_(options).getOrThrow();
 
-        LocalDate endDate = Utilities.parseTimeFilter(tf).last().getOrThrow();
+        LocalDate endDate = Utilities.parseTimeFilter(options.tfOptions).last().getOrThrow();
         // TODO: fail-fast for Res.fail & Res.empty
         // TODO list() -> streams()
         Result<List<BigDecimal>> growthFactors = Utilities.growthFactors(lTx, endDate);
@@ -437,13 +425,13 @@ public class Analysiolo {
     }
 
     @Command(name = "twrr")
-    int TWRR(@Mixin DB db, @Mixin TimeFilter tf) {
-        if (tf != null && tf.opt != null && tf.opt.date != null) {
+    int TWRR(@Mixin FooOptions fooOptions) {
+        if (fooOptions.tfOptions != null && fooOptions.tfOptions.date != null) {
             System.out.println("--date option not supported with twrr command");
             return -1;
         }
 
-        if (dryRun) {
+        if (fooOptions.dryRun) {
             // TODO twrr dry-run
             // -- TimeFilter date/period
             // -- Stockfilter
@@ -453,7 +441,7 @@ public class Analysiolo {
             return 0;
         } else {
             // TODO twrr correct output
-            Result<BigDecimal> output = twrr_(db, tf, stockFilter, txFile);
+            Result<BigDecimal> output = twrr_(fooOptions);
             output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
                 + " " + err));
             return output.isFailure() ? -1 : 0;

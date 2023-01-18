@@ -4,10 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import ch.cottier.app.Analysiolo.DB;
-import ch.cottier.app.Analysiolo.DB.ExclusiveOptions;
-import ch.cottier.app.Analysiolo.TimeFilter;
-import ch.cottier.app.Analysiolo.TimeFilter.ExclusiveTFOptions;
+import ch.cottier.app.FooOptions.DBOptions;
+import ch.cottier.app.FooOptions.TFOptions;
 import ch.cottier.functionalUtilities.FileReader;
 import ch.cottier.functionalUtilities.List;
 import ch.cottier.functionalUtilities.Map;
@@ -179,122 +177,112 @@ class AnalysioloTest {
     return dsRes.map(t -> new Tuple<>(t._1, t._2._1));
   }
 
-  DB prepDBOptions() {
-    DB db = new DB();
-    db.opt = new ExclusiveOptions();
-    db.opt.dbPath = null;
-    db.opt.newDBPath = new File("src/test/java/testdb.mv.db");
-    if (db.opt.newDBPath.exists())
-      assertTrue(db.opt.newDBPath.delete());
+  FooOptions.DBOptions prepDBOptions() {
+    FooOptions.DBOptions db = new DBOptions();
+    db.dbPath = null;
+    db.newDBPath = new File("src/test/java/testdb.mv.db");
+    if (db.newDBPath.exists())
+      assertTrue(db.newDBPath.delete());
 
     return db;
   }
 
-  TimeFilter prepTimeFilterOptions() {
-    TimeFilter tf = new TimeFilter();
-    tf.opt = new ExclusiveTFOptions();
-    tf.opt.date = null;
-    tf.opt.period = null;
-    return tf;
-  }
-
-  Result<Boolean> deleteDB(DB db) {
-    if (db != null && db.opt != null) {
-      File path = db.opt.newDBPath == null
-          ? db.opt.dbPath
-          : db.opt.newDBPath;
+  Result<Boolean> deleteDB(FooOptions.DBOptions db) {
+    if (db != null) {
+      File path = db.newDBPath == null
+          ? db.dbPath
+          : db.newDBPath;
       assertTrue(path.exists());
       assertTrue(path.delete());
       return Result.success(true);
     }
-    return Result.failure("db.opt is null");
+    return Result.failure("db is null");
   }
 
   @Test
   void listTest() {
-    DB db = prepDBOptions();
+    FooOptions options = new FooOptions();
+    options.dbOptions = prepDBOptions();
+    options.tfOptions = new TFOptions();
 
-    TimeFilter tf = prepTimeFilterOptions();
-    tf.opt.period = java.util.List.of("2021-05-01", "2021-11-30");
+    options.tfOptions.period = java.util.List.of("2021-05-01", "2021-11-30");
 
-    java.util.List<String> stocks = java.util.List.of("VTI");
-    File txFile = new File("src/test/java/testdata.txt");
+    options.stockFilter = java.util.List.of("VTI");
+    options.txFile = new File("src/test/java/testdata.txt");
 
-    Result<List<Transaction>> res = Analysiolo.list_(db, tf, stocks, txFile);
+    Result<List<Transaction>> res = Analysiolo.list_(options);
     assertSuccess(res)
         .forEachOrFail(lTx -> assertEquals(3, lTx.size()))
         .forEach(Assertions::fail);
-    assertSuccess(deleteDB(db));
+    assertSuccess(deleteDB(options.dbOptions));
 
-    stocks = null;
-    tf.opt.date = LocalDate.parse("2021-09-08");
-    tf.opt.period = null;
-    res = Analysiolo.list_(db, tf, stocks, txFile);
+    options.stockFilter = null;
+    options.tfOptions.date = LocalDate.parse("2021-09-08");
+    options.tfOptions.period = null;
+    res = Analysiolo.list_(options);
     assertSuccess(res)
         .forEachOrFail(lTx -> assertEquals(5, lTx.size()))
         .forEach(Assertions::fail);
-    assertSuccess(deleteDB(db));
+    assertSuccess(deleteDB(options.dbOptions));
 
-    stocks = java.util.List.of("MSFT");
-    res = Analysiolo.list_(db, tf, stocks, txFile);
+    options.stockFilter = java.util.List.of("MSFT");
+    res = Analysiolo.list_(options);
     assertTrue(res.isEmpty());
 
-    db.opt.dbPath = new File("src/test/java/testdb.mv.db");
-    db.opt.newDBPath = null;
-    tf.opt = null;
-    txFile = null;
-    stocks = null;
-    res = Analysiolo.list_(db, tf, stocks, txFile);
+    options.dbOptions.dbPath = new File("src/test/java/testdb.mv.db");
+    options.dbOptions.newDBPath = null;
+    options.tfOptions = null;
+    options.txFile = null;
+    options.stockFilter = null;
+    res = Analysiolo.list_(options);
     assertSuccess(res)
         .forEachOrFail(lTx -> assertEquals(13, lTx.size()))
         .forEach(Assertions::fail);
-    assertSuccess(deleteDB(db));
+    assertSuccess(deleteDB(options.dbOptions));
   }
 
   @Test
   void valueTest() {
-    DB db = prepDBOptions();
+    FooOptions options = new FooOptions();
+    options.dbOptions = prepDBOptions();
+    options.tfOptions = null;
+    options.stockFilter = java.util.List.of("VTI");
+    options.txFile = new File("src/test/java/testdata.txt");
 
-    TimeFilter tf = new TimeFilter();
-    tf.opt = null;
-
-    java.util.List<String> stocks = java.util.List.of("VTI");
-    File txFile = new File("src/test/java/testdata.txt");
-
-    var res = assertSuccess(Analysiolo.value_(db, tf, stocks, txFile));
+    var res = assertSuccess(Analysiolo.value_(options));
     BigDecimal expValue;
     res.forEachOrFail(l -> assertFalse(l.isEmpty()))
         .forEach(Assertions::fail);
-    String stockfiler = stocks.toString();
     res.forEach(l -> System.out.println("Current value, filtering for stocks "
-        + stockfiler + ": " + l.head()._2));
+        + options.stockFilter.toString() + ": " + l.head()._2));
 
     // Don't recreate database each time
-    db.opt.dbPath = new File("src/test/java/testdb.mv.db");
-    db.opt.newDBPath = null;
+    options.dbOptions.dbPath = new File("src/test/java/testdb.mv.db");
+    options.dbOptions.newDBPath = null;
 
-    txFile = null;
-    stocks = null;
+    options.txFile = null;
+    options.stockFilter = null;
 
     String dateStr1 = "2021-11-07";
     String dateStr2 = "2022-11-07";
-    tf = prepTimeFilterOptions();
-    tf.opt.date = LocalDate.parse(dateStr1);
-    res = Analysiolo.value_(db, tf, stocks, txFile);
+//    options.tfOptions = prepTimeFilterOptions();
+    options.tfOptions = new TFOptions();
+    options.tfOptions.date = LocalDate.parse(dateStr1);
+    res = Analysiolo.value_(options);
     expValue = new BigDecimal("158375.242809");
     assertSuccess(res)
         .forEachOrFail(l -> assertEquals(expValue, l.head()._2))
         .forEach(Assertions::fail);
 
-    tf.opt.date = null;
-    tf.opt.period = java.util.List.of(dateStr1);
-    res = Analysiolo.value_(db, tf, stocks, txFile);
+    options.tfOptions.date = null;
+    options.tfOptions.period = java.util.List.of(dateStr1);
+    res = Analysiolo.value_(options);
     assertSuccess(res)
         .forEachOrFail(l -> assertEquals(expValue, l.head()._2))
         .forEach(Assertions::fail);
 
-    tf.opt.period = java.util.List.of(dateStr1, dateStr2);
-    res = Analysiolo.value_(db, tf, stocks, txFile);
+    options.tfOptions.period = java.util.List.of(dateStr1, dateStr2);
+    res = Analysiolo.value_(options);
     assertSuccess(res)
         .forEachOrFail(l -> {
           assertEquals(new BigDecimal("158375.242809"), l.head()._2);
@@ -302,10 +290,10 @@ class AnalysioloTest {
         .forEach(Assertions::fail);
 
     // Clean up database
-    assertSuccess(deleteDB(db));
+    assertSuccess(deleteDB(options.dbOptions));
   }
 
-  static Result<List<List<BigDecimal>>> resultPrices(TimeFilter tf,
+  static Result<List<List<BigDecimal>>> resultPrices(FooOptions.TFOptions tf,
       java.util.List<String> symbols) {
     return Analysiolo.price_(tf, symbols)
         .map(outerL -> outerL.map(Tuple::_2)
@@ -330,12 +318,11 @@ class AnalysioloTest {
     String dateStr1 = "2021-11-07";
     String dateStr2 = "2022-11-07";
 
-    java.util.List<String> stocks = java.util.List.of("TSLA", "VTI");
+    FooOptions options = new FooOptions();
+    options.stockFilter = java.util.List.of("TSLA", "VTI");
 
     // no --date or --period -> current price
-    TimeFilter tf = new TimeFilter();
-    tf.opt = null;
-    var res = Analysiolo.price_(tf, stocks)
+    var res = Analysiolo.price_(null, options.stockFilter)
         .map(l -> l.head()._2);
     Result<List<BigDecimal>> currPrices = assertSuccess(res
         .map(l -> l.map(Tuple::_2)));
@@ -343,22 +330,22 @@ class AnalysioloTest {
         .forEach(t -> System.out.println("Current price of " + t.toString(":"))));
 
     // --date -> if today -> current price otherwise price on given date
-    tf = prepTimeFilterOptions();
-    tf.opt.date = LocalDate.now();
-    assertEquals(currPrices, resultPrices(tf, stocks).map(List::head));
+    options.tfOptions = new TFOptions();
+    options.tfOptions.date = LocalDate.now();
+    assertEquals(currPrices, resultPrices(options.tfOptions, options.stockFilter).map(List::head));
 
-    stocks = java.util.List.of("TSLA");
-    tf.opt.date = LocalDate.parse(dateStr1);
+    options.stockFilter = java.util.List.of("TSLA");
+    options.tfOptions.date = LocalDate.parse(dateStr1);
     assertEquals(Result.success(new BigDecimal("390.666656")),
-        resultPrices(tf, stocks).map(l -> l.head().head()));
+        resultPrices(options.tfOptions, options.stockFilter).map(l -> l.head().head()));
 
     // --period -> if only size() == 1 && today: same as --date=today, if size() == 1: price on
     // first date and today, if size() == 2 price on both dates
-    tf.opt.date = null;
-    tf.opt.period = java.util.List.of(LocalDate.now().toString());
-    stocks = java.util.List.of("TSLA", "VTI");
+    options.tfOptions.date = null;
+    options.tfOptions.period = java.util.List.of(LocalDate.now().toString());
+    options.stockFilter = java.util.List.of("TSLA", "VTI");
     Result<List<Tuple<BigDecimal, BigDecimal>>> combinedPrices =
-        resultPrices(tf, stocks).map(List::head)
+        resultPrices(options.tfOptions, options.stockFilter).map(List::head)
                                 .flatMap(resP -> currPrices.map(resP::zip));
     Result<Boolean> withinMargin = combinedPrices
         .map(lT -> lT
@@ -367,8 +354,8 @@ class AnalysioloTest {
     withinMargin.forEach(Assertions::assertTrue);
 
 
-    tf.opt.period = java.util.List.of(dateStr1);
-    Result<List<List<BigDecimal>>> resPrices1 = resultPrices(tf, stocks);
+    options.tfOptions.period = java.util.List.of(dateStr1);
+    Result<List<List<BigDecimal>>> resPrices1 = resultPrices(options.tfOptions, options.stockFilter);
     List<List<BigDecimal>> expPrices1 = List.of(
         List.of(new BigDecimal("390.666656"), new BigDecimal("238.830002")),
         currPrices.getOrThrow());
@@ -384,11 +371,11 @@ class AnalysioloTest {
         .reduce(Boolean::logicalAnd));
     withinMargin.forEach(Assertions::assertTrue);
 
-    tf.opt.period = java.util.List.of(dateStr1, dateStr2);
+    options.tfOptions.period = java.util.List.of(dateStr1, dateStr2);
     List<List<BigDecimal>> expPrices2 = List.of(
         List.of(new BigDecimal("390.666656"), new BigDecimal("238.830002")),
         List.of(new BigDecimal("214.979996"), new BigDecimal("188.339996")));
-    assertEquals(Result.success(expPrices2), resultPrices(tf, stocks));
+    assertEquals(Result.success(expPrices2), resultPrices(options.tfOptions, options.stockFilter));
   }
 
   // avgCost (date, period): avgCost for each stock over filtered transactions, always filter stocks
@@ -398,18 +385,17 @@ class AnalysioloTest {
   @SuppressWarnings("ConstantConditions")
   @Test
   void avgCostTest() {
-    DB db = prepDBOptions();
-    TimeFilter tf = new TimeFilter();
-    File txFile;
-    java.util.List<String> stocks;
+    FooOptions options = new FooOptions();
+    options.dbOptions = prepDBOptions();
+    options.tfOptions = null;
     String dateStr1 = "2021-10-12";
     String dateStr2 = "2022-11-07";
 
     // 1. new database, ingest txs -> stock filter AVUV
-    db.opt.newDBPath = new File("src/test/java/testdb.mv.db");
-    txFile = new File("src/test/java/testdata.txt");
-    stocks = java.util.List.of("AVUV");
-    Result<Map<Symbol, List<BigDecimal>>> res = Analysiolo.avgCost_(db, tf, stocks, txFile);
+    options.dbOptions.newDBPath = new File("src/test/java/testdb.mv.db");
+    options.txFile = new File("src/test/java/testdata.txt");
+    options.stockFilter = java.util.List.of("AVUV");
+    Result<Map<Symbol, List<BigDecimal>>> res = Analysiolo.avgCost_(options);
 
     Map<Symbol, List<BigDecimal>> expRes1 =
         Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("AVUV"),
@@ -417,42 +403,42 @@ class AnalysioloTest {
     res.forEachOrFail(m -> assertEquals(expRes1, m)).forEach(Assertions::fail);
 
     // 2. existing database, no ingesting -> stock filter TSLA, VTI
-    db.opt.dbPath = new File("src/test/java/testdb.mv.db");
-    db.opt.newDBPath = null;
-    txFile = null;
-    stocks = java.util.List.of("TSLA", "VTI");
+    options.dbOptions.dbPath = new File("src/test/java/testdb.mv.db");
+    options.dbOptions.newDBPath = null;
+    options.txFile = null;
+    options.stockFilter = java.util.List.of("TSLA", "VTI");
     Map<Symbol, List<BigDecimal>> expRes2 =
         Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("VTI"),
             List.of(new BigDecimal("43.109"), new BigDecimal("40.110"), new BigDecimal("90.000")));
-    res = Analysiolo.avgCost_(db, tf, stocks, txFile);
+    res = Analysiolo.avgCost_(options);
     res.forEachOrFail(m -> assertEquals(expRes2, m)).forEach(Assertions::fail);
 
     // 3. existing database, no ingesting -> date & single stock VTI
-    tf = prepTimeFilterOptions();
-    tf.opt.date = LocalDate.parse(dateStr1);
-    stocks = java.util.List.of("VTI");
+    options.tfOptions = new TFOptions();
+    options.tfOptions.date = LocalDate.parse(dateStr1);
+    options.stockFilter = java.util.List.of("VTI");
     Map<Symbol, List<BigDecimal>> expRes3 =
         Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("VTI"),
             List.of(new BigDecimal("85.465"), new BigDecimal("40.110"), new BigDecimal("90.000")));
-    res = Analysiolo.avgCost_(db, tf, stocks, txFile);
+    res = Analysiolo.avgCost_(options);
     res.forEachOrFail(m -> assertEquals(expRes3, m)).forEach(Assertions::fail);
 
     // 4. existing database, no ingesting -> two periods & single stock VTI
-    tf.opt.date = null;
-    tf.opt.period = List.of(dateStr1, dateStr2);
+    options.tfOptions.date = null;
+    options.tfOptions.period = List.of(dateStr1, dateStr2);
     Map<Symbol, List<BigDecimal>> expRes4 =
         Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("VTI"),
             List.of(new BigDecimal("43.121"), new BigDecimal("41.200"), new BigDecimal("90.000")));
-    res = Analysiolo.avgCost_(db, tf, stocks, txFile);
+    res = Analysiolo.avgCost_(options);
     res.forEachOrFail(m -> assertEquals(expRes4, m)).forEach(Assertions::fail);
 
     // No transaction with filtered stock
-    stocks = java.util.List.of("TSLA");
-    res = Analysiolo.avgCost_(db, tf, stocks, txFile);
+    options.stockFilter = java.util.List.of("TSLA");
+    res = Analysiolo.avgCost_(options);
     assertTrue(res.isEmpty());
 
     // Clean up database
-    assertSuccess(deleteDB(db));
+    assertSuccess(deleteDB(options.dbOptions));
   }
 
   @Test
@@ -467,7 +453,7 @@ class AnalysioloTest {
     String dateStr2 = "2022-11-07";
 
     // 1. new database, ingest txs -> stock filter AVUV
-    db.opt.newDBPath = new File("src/test/java/testdb.mv.db");
+    db.newDBPath = new File("src/test/java/testdb.mv.db");
     txFile = new File("src/test/java/testdata.txt");
     stocks = java.util.List.of("AVUV");
     Result<Map<Symbol, List<BigDecimal>>> res = app.avgCost_(db, tf, stocks, txFile);

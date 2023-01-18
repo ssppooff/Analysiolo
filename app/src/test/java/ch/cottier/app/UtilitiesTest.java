@@ -4,10 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import ch.cottier.app.Analysiolo.DB;
-import ch.cottier.app.Analysiolo.DB.ExclusiveOptions;
-import ch.cottier.app.Analysiolo.TimeFilter;
-import ch.cottier.app.Analysiolo.TimeFilter.ExclusiveTFOptions;
+import ch.cottier.app.FooOptions.DBOptions;
+import ch.cottier.app.FooOptions.TFOptions;
 import ch.cottier.functionalUtilities.List;
 import ch.cottier.functionalUtilities.Map;
 import ch.cottier.functionalUtilities.Result;
@@ -76,46 +74,45 @@ class UtilitiesTest {
 //  -d demo.db --period 2021-10-10 now (equiv to ^)
 //  -d demo.db --period inception 2021-10-10 (from- to end-date)
 
-    Analysiolo.TimeFilter tf = new Analysiolo.TimeFilter();
-    tf.opt = new Analysiolo.TimeFilter.ExclusiveTFOptions();
-    tf.opt.date = null;
-    tf.opt.period = List.of("now");
+    FooOptions.TFOptions tf = new TFOptions();
+    tf.date = null;
+    tf.period = List.of("now");
     Function<LocalDate, Boolean> comp = date -> Utilities.timePeriodComparator(tf)
                                                          .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
     assertFalse(comp.apply(LocalDate.parse("2020-01-01")));
     assertTrue(comp.apply(LocalDate.now()));
 
-    tf.opt.period = List.of("inception");
+    tf.period = List.of("inception");
     comp = date -> Utilities.timePeriodComparator(tf)
                             .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
     assertTrue(comp.apply(LocalDate.parse("1000-01-01")));
     assertTrue(comp.apply(LocalDate.now()));
 
-    tf.opt.period = List.of("inception", "now");
+    tf.period = List.of("inception", "now");
     comp = date -> Utilities.timePeriodComparator(tf)
                             .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
     assertTrue(comp.apply(LocalDate.parse("1000-01-01")));
     assertTrue(comp.apply(LocalDate.now()));
 
-    tf.opt.period = List.of("now", "inception");
+    tf.period = List.of("now", "inception");
     comp = date -> Utilities.timePeriodComparator(tf)
                             .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
     assertFalse(comp.apply(LocalDate.parse("1000-01-02")));
     assertFalse(comp.apply(LocalDate.now()));
 
-    tf.opt.period = List.of("2021-10-10");
+    tf.period = List.of("2021-10-10");
     comp = date -> Utilities.timePeriodComparator(tf)
                             .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
     assertTrue(comp.apply(LocalDate.parse("2021-10-11")));
     assertTrue(comp.apply(LocalDate.now()));
 
-    tf.opt.period = List.of("2021-10-10", "now");
+    tf.period = List.of("2021-10-10", "now");
     comp = date -> Utilities.timePeriodComparator(tf)
                             .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
     assertTrue(comp.apply(LocalDate.parse("2021-10-11")));
     assertTrue(comp.apply(LocalDate.now()));
 
-    tf.opt.period = List.of("inception", "2021-10-10");
+    tf.period = List.of("inception", "2021-10-10");
     comp = date -> Utilities.timePeriodComparator(tf)
                             .apply(Transaction.transaction(date, "TLSA", 0, BigDecimal.ZERO));
     assertFalse(comp.apply(LocalDate.parse("2021-10-11")));
@@ -124,15 +121,13 @@ class UtilitiesTest {
 
   @Test
   void parseDbOptionTest() {
-    DB db = new DB();
-    assertFailure(Utilities.parseDbOption(db));
 
-    db.opt = new ExclusiveOptions();
-    db.opt.dbPath = null;
-    db.opt.newDBPath = new File("src/test/java/testdb.mv.db");
+    FooOptions.DBOptions db = new DBOptions();
+    db.dbPath = null;
+    db.newDBPath = new File("src/test/java/testdb.mv.db");
     assertSuccess(Utilities.parseDbOption(db));
-    assertTrue(db.opt.newDBPath.exists());
-    assertTrue(db.opt.newDBPath.delete());
+    assertTrue(db.newDBPath.exists());
+    assertTrue(db.newDBPath.delete());
   }
 
   @Test
@@ -144,31 +139,30 @@ class UtilitiesTest {
 
   @Test
   void parseTimeFilterTest() {
-    TimeFilter tf = new TimeFilter();
-    List<LocalDate> res = Utilities.parseTimeFilter(tf);
+    List<LocalDate> res = Utilities.parseTimeFilter(null);
     List<LocalDate> expRes = List.of(LocalDate.now());
     assertEquals(expRes, res);
 
     String dateStr1 = "2021-10-10";
     String dateStr2 = "2021-12-10";
-    tf.opt = new ExclusiveTFOptions();
-    tf.opt.date = LocalDate.parse(dateStr1);
+    FooOptions.TFOptions tf = new TFOptions();
+    tf.date = LocalDate.parse(dateStr1);
     res = Utilities.parseTimeFilter(tf);
     expRes = List.of(LocalDate.parse(dateStr1));
     assertEquals(expRes, res);
 
-    tf.opt.date = null;
-    tf.opt.period = java.util.List.of(dateStr1);
+    tf.date = null;
+    tf.period = java.util.List.of(dateStr1);
     res = Utilities.parseTimeFilter(tf);
     expRes = List.of(LocalDate.parse(dateStr1), LocalDate.now());
     assertEquals(expRes, res);
 
-    tf.opt.period = java.util.List.of(dateStr1, dateStr2);
+    tf.period = java.util.List.of(dateStr1, dateStr2);
     res = Utilities.parseTimeFilter(tf);
     expRes = List.of(LocalDate.parse(dateStr1), LocalDate.parse(dateStr2));
     assertEquals(expRes, res);
 
-    tf.opt.period = java.util.List.of("inception", dateStr2);
+    tf.period = java.util.List.of("inception", dateStr2);
     res = Utilities.parseTimeFilter(tf);
     expRes = List.of(LocalDate.parse("1000-01-01"), LocalDate.parse(dateStr2));
     assertEquals(expRes, res);
@@ -300,7 +294,7 @@ class UtilitiesTest {
         List.of("", "2021-10-10", "2022-10-10", "delta", "delta (%)"),
         List.of("TSLA", "100.000", "200.000", "100.000", "1.00"),
         List.of("VTI", "2000.000", "20.000", "-1980.000", "-0.49"));
-    var f= Utilities.themeChangeMetrics().apply(data);
+    List<List<String>> f= Utilities.themeChangeMetrics().apply(data);
     System.out.println(Utilities.renderTable(f));
   }
 

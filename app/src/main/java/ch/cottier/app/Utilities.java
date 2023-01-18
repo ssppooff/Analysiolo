@@ -1,7 +1,5 @@
 package ch.cottier.app;
 
-import ch.cottier.app.Analysiolo.DB;
-import ch.cottier.app.Analysiolo.TimeFilter;
 import ch.cottier.functionalUtilities.FileReader;
 import ch.cottier.functionalUtilities.List;
 import ch.cottier.functionalUtilities.Map;
@@ -26,7 +24,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 
 final class Utilities {
-  static Result<List<Transaction>> prepTransactions(DB db, File txFile) {
+  static Result<List<Transaction>> prepTransactions(FooOptions.DBOptions db, File txFile) {
       Result<File> file = txFile == null ? Result.empty() : Result.success(txFile);
       return parseDbOption(db)
           .flatMap(ds -> file
@@ -38,24 +36,24 @@ final class Utilities {
               .map(ignoreReturn -> t._1));
   }
 
-  static Result<String> validationDBOptions(DB db) {
+  static Result<String> validationDBOptions(FooOptions.DBOptions db) {
       try {
-          if (db == null || db.opt == null)
+          if (db == null)
               return Result.failure("No path to database given, exiting");
           else {
-              String dbPath = removePossibleExtensions(db.opt.dbPath == null
-                      ? db.opt.newDBPath.getCanonicalPath()
-                      : db.opt.dbPath.getCanonicalPath());
+              String dbPath = removePossibleExtensions(db.dbPath == null
+                      ? db.newDBPath.getCanonicalPath()
+                      : db.dbPath.getCanonicalPath());
               File dbFile = new File(dbPath + ".mv.db");
 
-              if (db.opt.newDBPath != null)
+              if (db.newDBPath != null)
                   return dbFile.exists()
                       ? Result.failure("Database already exists at " + dbPath)
-                      : Result.success("Creating new database at" + dbPath);
+                      : Result.success("Creating new database at " + dbPath);
               else
                   return !dbFile.exists()
                       ? Result.failure("No database found at " + dbPath)
-                      : Result.success("Using existing database at" + dbPath);
+                      : Result.success("Using existing database at " + dbPath);
 
           }
       } catch (Exception e) {
@@ -134,17 +132,17 @@ final class Utilities {
 
     private Utilities() {}
 
-    static Result<DataSource> parseDbOption(DB db) {
+    static Result<DataSource> parseDbOption(FooOptions.DBOptions dbOptions) {
         try {
-            if (db.opt == null)
-                return Result.failure("db.opt is null");
+            if (dbOptions == null)
+                return Result.failure("dbOptions is null");
 
-            String dbPath = removePossibleExtensions(db.opt.dbPath == null
-                ? db.opt.newDBPath.getCanonicalPath()
-                : db.opt.dbPath.getCanonicalPath());
+            String dbPath = removePossibleExtensions(dbOptions.dbPath == null
+                ? dbOptions.newDBPath.getCanonicalPath()
+                : dbOptions.dbPath.getCanonicalPath());
             File dbFullPath = new File(dbPath + ".mv.db");
 
-            return db.opt.dbPath == null
+            return dbOptions.dbPath == null
                 ? !dbFullPath.exists() // creating a new database
                     ? DataSource.open(dbPath)
                     : Result.failure("Database " + dbFullPath.getCanonicalPath()
@@ -213,13 +211,13 @@ final class Utilities {
         return res.map(ignored -> l);
     }
 
-    static List<LocalDate> parseTimeFilter(final TimeFilter tf) {
-        if (tf == null || tf.opt == null)
+    static List<LocalDate> parseTimeFilter(final FooOptions.TFOptions tf) {
+        if (tf == null)
             return List.of(LocalDate.now());
-        else if (tf.opt.date != null)
-            return List.of(tf.opt.date);
+        else if (tf.date != null)
+            return List.of(tf.date);
         else {
-            List<LocalDate> period = List.of(tf.opt.period).map(Utilities::parsePeriod);
+            List<LocalDate> period = List.of(tf.period).map(Utilities::parsePeriod);
             return period.size() == 1
                 ? period.append(LocalDate.now())
                 : period;
@@ -248,13 +246,13 @@ final class Utilities {
             : List.of(filter).map(Symbol::symbol);
     }
 
-    static Function<Transaction, Boolean> timePeriodComparator(final TimeFilter filter) {
-        if (filter == null || filter.opt == null)
+    static Function<Transaction, Boolean> timePeriodComparator(final FooOptions.TFOptions filter) {
+        if (filter == null)
             return tx -> true;
-        if (filter.opt.date != null)
-            return tx -> tx.getDate().compareTo(filter.opt.date) <= 0;
+        if (filter.date != null)
+            return tx -> tx.getDate().compareTo(filter.date) <= 0;
         else {
-            List<String> period = List.of(filter.opt.period);
+            List<String> period = List.of(filter.period);
             if (period.size() == 1) {
                 return switch (period.head()) {
                     case "now" -> tx -> tx.getDate().equals(LocalDate.now());
