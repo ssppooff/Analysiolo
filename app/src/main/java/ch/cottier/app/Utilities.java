@@ -11,6 +11,8 @@ import ch.cottier.functionalUtilities.Tuple;
 import ch.cottier.functionalUtilities.Tuple3;
 import ch.cottier.stockAPI.DataSource;
 import ch.cottier.stockAPI.Parser;
+import ch.cottier.stockAPI.Portfolio;
+import ch.cottier.stockAPI.Stock;
 import ch.cottier.stockAPI.Symbol;
 import ch.cottier.stockAPI.Transaction;
 import java.io.File;
@@ -24,7 +26,92 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 
 final class Utilities {
-    private enum Theme {
+  static Result<List<Transaction>> prepTransactions(DB db, File txFile) {
+      Result<File> file = txFile == null ? Result.empty() : Result.success(txFile);
+      return parseDbOption(db)
+          .flatMap(ds -> file
+              .flatMap(Utilities::checkTxIn)
+              .flatMap(ds::insertTransactions)
+              .mapEmpty(() -> ds))
+          .flatMap(DataSource::getTransactions)
+          .flatMap(t -> t._2.close()
+              .map(ignoreReturn -> t._1));
+  }
+
+  static Result<String> validationDBOptions(DB db) {
+      try {
+          if (db == null || db.opt == null)
+              return Result.failure("No path to database given, exiting");
+          else {
+              String dbPath = removePossibleExtensions(db.opt.dbPath == null
+                      ? db.opt.newDBPath.getCanonicalPath()
+                      : db.opt.dbPath.getCanonicalPath());
+              File dbFile = new File(dbPath + ".mv.db");
+
+              if (db.opt.newDBPath != null)
+                  return dbFile.exists()
+                      ? Result.failure("Database already exists at " + dbPath)
+                      : Result.success("Creating new database at" + dbPath);
+              else
+                  return !dbFile.exists()
+                      ? Result.failure("No database found at " + dbPath)
+                      : Result.success("Using existing database at" + dbPath);
+
+          }
+      } catch (Exception e) {
+          return Result.failure(e);
+      }
+  }
+
+  static String renderStockList(java.util.List<String> stockFilter) {
+      if (stockFilter.size() == 1)
+          return stockFilter.get(0);
+
+      StringBuilder s = new StringBuilder();
+      s.append(stockFilter.get(0));
+      for (int i = 1; i < stockFilter.size() -1; i++)
+          s.append(", ").append(stockFilter.get(i));
+
+      return s.append(", and ").append(stockFilter.get(stockFilter.size() - 1)).toString();
+  }
+
+  static Result<List<BigDecimal>> growthFactors(List<Transaction> lTx, LocalDate endDate) {
+      List<Transaction> lTx2 = lTx.tail()
+                                  .append(Transaction.transaction(endDate, "", 1, BigDecimal.ZERO));
+      List<Result<BigDecimal>> factors = List.list();
+      return List.flattenResult(
+          lTx.zip(lTx2).foldLeft(new Tuple<>(factors, Portfolio.empty()),
+              t -> txs -> {
+                  var pf = t._2.updateWith(txs._1).getOrThrow();
+
+                  Result<BigDecimal> Vinit = txs._1.getNumShares() > 0 // BUY
+                      ? pf.valueOn(txs._1.getDate()).map(v -> v.add(premium(txs._1)))
+                      : pf.valueOn(txs._1.getDate());
+                  Result<BigDecimal> Vend = txs._2.getNumShares() < 0 // SELL
+                      ? pf.valueOn(txs._2.getDate()).map(v -> v.add(premium(txs._2)))
+                      : pf.valueOn(txs._2.getDate());
+
+                  // TODO instead of List<Tuple<BD, BD>> in each iteration multiply w/ accumulator
+                  List<Result<BigDecimal>> result = t._1
+                      .prepend(Result
+                          .map2(Vinit, Vend,
+                              init -> end -> end.divide(init, RoundingMode.HALF_UP)));
+
+                  return new Tuple<>(result, pf);
+              })._1);
+  }
+
+  static BigDecimal premium(Transaction tx) {
+      Result<BigDecimal> f = Stock.stock(tx.getSymbol().getSymbolStr())
+                                  .flatMap(s -> s.getPriceOn(tx.getDate()))
+                                  .map(price -> tx.getPrice()
+                                                  .subtract(price)
+                                                  .multiply(new BigDecimal(tx.getNumShares())));
+      // TODO clean-up
+      return f.getOrThrow();
+  }
+
+  private enum Theme {
         Header ((cell, width) -> padCellToLen(cell, width, true)),
         RowName ((cell, width) -> padCellToLen(cell, width, false)),
         Data ((cell, width) -> padCellToLen(cell, width, true));

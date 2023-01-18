@@ -617,7 +617,7 @@ class AnalysioloTest {
             new BigDecimal("181.000000")),
         Transaction.transaction(LocalDate.parse("2022-11-10"), "VTI", -6,
             new BigDecimal("180.00000")));
-    var f = Analysiolo.growthFactors(lTx, (LocalDate.parse("2022-11-28")));
+    var f = Utilities.growthFactors(lTx, (LocalDate.parse("2022-11-28")));
     f.forEachOrFail(System.out::println).forEach(err -> System.out.println("err: " + err));
   }
 }

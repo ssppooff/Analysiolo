@@ -5,7 +5,6 @@ import ch.cottier.functionalUtilities.Map;
 import ch.cottier.functionalUtilities.Result;
 import ch.cottier.functionalUtilities.Tuple;
 import ch.cottier.functionalUtilities.Tuple3;
-import ch.cottier.stockAPI.DataSource;
 import ch.cottier.stockAPI.Portfolio;
 import ch.cottier.stockAPI.Stock;
 import ch.cottier.stockAPI.Symbol;
@@ -144,43 +143,16 @@ public class Analysiolo implements Callable<Integer> {
     @Option(names = "--filter", split = ",", arity = "1..*", scope = ScopeType.INHERIT)
     private java.util.List<String> stockFilter;
 
-    // subcommand
-    static Result<List<Transaction>> prepTransactions(DB db, File txFile) {
-        Result<File> file = txFile == null ? Result.empty() : Result.success(txFile);
-        return Utilities.parseDbOption(db)
-            .flatMap(ds -> file
-                .flatMap(Utilities::checkTxIn)
-                .flatMap(ds::insertTransactions)
-                .mapEmpty(() -> ds))
-            .flatMap(DataSource::getTransactions)
-            .flatMap(t -> t._2.close()
-                .map(ignoreReturn -> t._1));
+    // Business logic goes in here
+    @Override
+    public Integer call() throws Exception {
+        System.out.println("No subcommand specified, assuming subcommand value");
+        return value(db, tf);
     }
 
-    static Result<String> validationDBOptions(DB db) {
-        try {
-            if (db == null || db.opt == null)
-                return Result.failure("No path to database given, exiting");
-            else {
-                String dbPath = Utilities
-                    .removePossibleExtensions(db.opt.dbPath == null
-                        ? db.opt.newDBPath.getCanonicalPath()
-                        : db.opt.dbPath.getCanonicalPath());
-                File dbFile = new File(dbPath + ".mv.db");
-
-                if (db.opt.newDBPath != null)
-                    return dbFile.exists()
-                        ? Result.failure("Database already exists at " + dbPath)
-                        : Result.success("Creating new database at" + dbPath);
-                else
-                    return !dbFile.exists()
-                        ? Result.failure("No database found at " + dbPath)
-                        : Result.success("Using existing database at" + dbPath);
-
-            }
-        } catch (Exception e) {
-            return Result.failure(e);
-        }
+    public static void main(String[] args) {
+        int exitCode = new CommandLine(new Analysiolo()).execute(args);
+        System.exit(exitCode);
     }
 
     static void dryRunFile(File txFile) throws Exception {
@@ -210,15 +182,15 @@ public class Analysiolo implements Callable<Integer> {
 
     static Result<List<Transaction>> list_(DB db, TimeFilter tf,
         java.util.List<String> symbols, File txFile) {
-        return prepTransactions(db, txFile)
-            .map(txs -> txs.filter(Utilities.symbolComparator(symbols)))
-            .map(txs -> txs.filter(Utilities.timePeriodComparator(tf)))
-            .mapEmptyCollection();
+        return Utilities.prepTransactions(db, txFile)
+                        .map(txs -> txs.filter(Utilities.symbolComparator(symbols)))
+                        .map(txs -> txs.filter(Utilities.timePeriodComparator(tf)))
+                        .mapEmptyCollection();
     }
 
     @Command(name = "list")
     int list(@Mixin DB db, @Mixin TimeFilter tf) throws Exception {
-        Result<String> dbValidation = validationDBOptions(db);
+        Result<String> dbValidation = Utilities.validationDBOptions(db);
         if (dbValidation.isFailure()) {
             dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
             return -1;
@@ -243,15 +215,15 @@ public class Analysiolo implements Callable<Integer> {
 
     static Result<List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>>>
         price_(TimeFilter tf, java.util.List<String> symbols) {
-            return List.flattenResult(Utilities
-                .parseTimeFilter(tf)
-                .map(date -> Stock.stocks(symbols)
-                    .map(m -> m
-                        .mapVal(stock -> stock.getPriceOn(date))
-                        .toList()
-                        .map(Tuple::flattenResultRight))
-                    .flatMap(List::flattenResult)
-                    .map(l -> new Tuple<>(date, l))));
+            return List.flattenResult(
+                Utilities.parseTimeFilter(tf)
+                    .map(date -> Stock.stocks(symbols)
+                        .map(m -> m
+                            .mapVal(stock -> stock.getPriceOn(date))
+                            .toList()
+                            .map(Tuple::flattenResultRight))
+                        .flatMap(List::flattenResult)
+                        .map(l -> new Tuple<>(date, l))));
     }
 
     @Command(name = "price")
@@ -295,7 +267,7 @@ public class Analysiolo implements Callable<Integer> {
             List<LocalDate> dates = Utilities.parseTimeFilter(tf);
             StringBuilder s = new StringBuilder();
             s.append("Getting prices for ")
-             .append(renderStockList(stockFilter))
+             .append(Utilities.renderStockList(stockFilter))
              .append(" for date(s) ")
              .append(dates.get(0));
 
@@ -327,21 +299,9 @@ public class Analysiolo implements Callable<Integer> {
         }
     }
 
-    static String renderStockList(java.util.List<String> stockFilter) {
-        if (stockFilter.size() == 1)
-            return stockFilter.get(0);
-
-        StringBuilder s = new StringBuilder();
-        s.append(stockFilter.get(0));
-        for (int i = 1; i < stockFilter.size() -1; i++)
-            s.append(", ").append(stockFilter.get(i));
-
-        return s.append(", and ").append(stockFilter.get(stockFilter.size() - 1)).toString();
-    }
-
     static Result<List<Tuple<LocalDate, BigDecimal>>> value_(DB db, TimeFilter tf, java.util.List<String> symbols, File txFile) {
-        Result<List<Transaction>> lTx = prepTransactions(db, txFile)
-            .map(txs -> txs.filter(Utilities.symbolComparator(symbols)));
+        Result<List<Transaction>> lTx = Utilities.prepTransactions(db, txFile)
+                                                 .map(txs -> txs.filter(Utilities.symbolComparator(symbols)));
 
         return List.flattenResult(
             Utilities.parseTimeFilter(tf)
@@ -359,7 +319,7 @@ public class Analysiolo implements Callable<Integer> {
 
     @Command(name = "value")
     int value(@Mixin DB db, @Mixin TimeFilter tf) throws Exception {
-        Result<String> dbValidation = validationDBOptions(db);
+        Result<String> dbValidation = Utilities.validationDBOptions(db);
         if (dbValidation.isFailure()) {
             dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
             return -1;
@@ -419,7 +379,7 @@ public class Analysiolo implements Callable<Integer> {
             return -1;
         }
 
-        Result<String> dbValidation = validationDBOptions(db);
+        Result<String> dbValidation = Utilities.validationDBOptions(db);
         if (dbValidation.isFailure()) {
             dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
             return -1;
@@ -464,7 +424,7 @@ public class Analysiolo implements Callable<Integer> {
         LocalDate endDate = Utilities.parseTimeFilter(tf).last().getOrThrow();
         // TODO: fail-fast for Res.fail & Res.empty
         // TODO list() -> streams()
-        Result<List<BigDecimal>> growthFactors = growthFactors(lTx, endDate);
+        Result<List<BigDecimal>> growthFactors = Utilities.growthFactors(lTx, endDate);
 
         return growthFactors.map(l -> l.reduce(BigDecimal::multiply)
                                        .subtract(BigDecimal.ONE));
@@ -476,43 +436,6 @@ public class Analysiolo implements Callable<Integer> {
              complicated way of stating that the returns for each sub-period are multiplied by each
              other.
          */
-    }
-
-    static Result<List<BigDecimal>> growthFactors(List<Transaction> lTx, LocalDate endDate) {
-        List<Transaction> lTx2 = lTx.tail()
-                                    .append(Transaction.transaction(endDate, "", 1, BigDecimal.ZERO));
-        List<Result<BigDecimal>> factors = List.list();
-        var foo = lTx.zip(lTx2).foldLeft(new Tuple<>(factors, Portfolio.empty()),
-            t -> txs -> {
-                var pf = t._2.updateWith(txs._1).getOrThrow();
-
-                Result<BigDecimal> Vinit = txs._1.getNumShares() > 0 // BUY
-                    ? pf.valueOn(txs._1.getDate()).map(v -> v.add(premium(txs._1)))
-                    : pf.valueOn(txs._1.getDate());
-                Result<BigDecimal> Vend = txs._2.getNumShares() < 0 // SELL
-                    ? pf.valueOn(txs._2.getDate()).map(v -> v.add(premium(txs._2)))
-                    : pf.valueOn(txs._2.getDate());
-
-                // TODO instead of List<Tuple<BD, BD>> in each iteration multiply w/ accumulator
-                List<Result<BigDecimal>> result = t._1
-                    .prepend(Result
-                        .map2(Vinit, Vend,
-                            init -> end -> end.divide(init, RoundingMode.HALF_UP)));
-
-                return new Tuple<>(result, pf);
-            })._1;
-
-        return List.flattenResult(foo);
-    }
-
-    static BigDecimal premium(Transaction tx) {
-        Result<BigDecimal> f = Stock.stock(tx.getSymbol().getSymbolStr())
-                                    .flatMap(s -> s.getPriceOn(tx.getDate()))
-                                    .map(price -> tx.getPrice()
-                                                    .subtract(price)
-                                                    .multiply(new BigDecimal(tx.getNumShares())));
-        // TODO clean-up
-        return f.getOrThrow();
     }
 
     @Command(name = "twrr")
@@ -537,17 +460,5 @@ public class Analysiolo implements Callable<Integer> {
                 + " " + err));
             return output.isFailure() ? -1 : 0;
         }
-    }
-
-    // Business logic goes in here
-    @Override
-    public Integer call() throws Exception {
-        System.out.println("No subcommand specified, assuming subcommand value");
-        return value(db, tf);
-    }
-
-    public static void main(String[] args) {
-        int exitCode = new CommandLine(new Analysiolo()).execute(args);
-        System.exit(exitCode);
     }
 }
