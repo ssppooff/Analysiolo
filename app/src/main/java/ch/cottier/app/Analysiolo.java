@@ -95,7 +95,7 @@ $ analysiolo price --filter=TSLA --period inception (not supported)
 @Command(name = "analysiolo", version = "analysiolio 0.1", mixinStandardHelpOptions = true,
 description = "Tool for simple analysis of a stock portfolio based on transactions.",
     subcommands = { HelpCommand.class })
-public class Analysiolo implements Callable<Integer> {
+public class Analysiolo {
 
     Analysiolo() {}
 
@@ -144,10 +144,8 @@ public class Analysiolo implements Callable<Integer> {
     private java.util.List<String> stockFilter;
 
     // Business logic goes in here
-    @Override
     public Integer call() throws Exception {
-        System.out.println("No subcommand specified, assuming subcommand value");
-        return value(db, tf);
+        return 0;
     }
 
     public static void main(String[] args) {
