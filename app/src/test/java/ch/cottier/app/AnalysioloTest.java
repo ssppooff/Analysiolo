@@ -23,52 +23,6 @@ import java.util.Comparator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-/* TODO Current task & subtasks:
-    * Write CLI parser so that it can be used as a cLI tool
-    * Check all symbols input by the user -> replace Symbol.name without Result<String>
-    * MWRR & AIRR?
-    - When I input further transactions into the db, what is the sorting oder?
-    - nShares integer or double or BigDecimal?
-
- * Finished tasks
-   - ~~Input all the transactions into db~~
-   - ~~Write methods to write multiple rows into db~~
-   - ~~Write methods to read multiple rows into db~~
-   - ~~compile list of all stocks held~~
-   - ~~After parsing all transactions, make sure that no nShares is negative for any stock~~
-   - ~~compile list of all stock held at this current moment~~
-   - ~~Connect to H2 database using JDBC, write & read stuff to it~~
-   - ~~Stream.java -> flattenResult~~
-   - ~~check whether txType and price (pos or neg) corresponds~~
-   - ~~Read all the transactions from the db into memory~~
-   - ~~When parsing from file, make sure to return failure of createTxWithType()~~
-   - ~~List.unfold() where you preserve the Return.failure()~~
-   - ~~Write multiple transactions into db in FP style~~
-   - ~~Close statements, preparedStatements and database~~
-   - ~~Refactor code that gets data out of DataBase, eliminate use of statements and ResultSets
-      from MainTest.java~~
-   - ~~Can I remove preparedStatements from DataBase.java?~~
-   - ~~Refactor into DataSource.java~~
-   - ~~Refactor into Parser.java~~
-   - ~~Refactor tests into DataSourceTest.java, ParserTest.java and DataBaseTest.java~~
-   - ~~Parse data from file, check whether it is valid, if so, put into db~~
-   - ~~Sort the newly provided transactions, if some were done on the same day, sort them according to
-      the sequence they were provided~~
-   - ~~Check whether the new provided transactions are all later (or on the same day) as the latest from
-    the db~~
-   - ~~Figure out, whether the provided data is sorted in descending or ascending order~~
-   - ~~After reading in data, make sure it is sorted correctly -> if note let the user know~~
-   - ~~Check for negative stocks after combining the transactions in the db and the supplied file~~
-   - ~~Make sure that after each transactions there is no negative number of shares for each stock~~
-   - ~~after having checked the new transactions, input them into the db~~
-   - ~~Compute weighted average of stock purchase for each stock
-       -> ((nShares * price) for each tx)/totShares in portfolio~~
-   - ~~Create function to get value of 1 and multiple stocks, now and at specific date~~
-   - ~~Time-Weighted Rate of Return (TWRR)~~
-   - ~~Fix wrong dates in test data 2022 -> 2021~~
-   - ~~Refactor into Portfolio class~~
- */
-
 class AnalysioloTest {
   String path = "src/test/java/testdata.txt";
 //  String pathErrorFile = "src/test/java/testdata_error.txt";

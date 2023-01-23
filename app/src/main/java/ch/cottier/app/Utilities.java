@@ -89,7 +89,8 @@ final class Utilities {
                       ? pf.valueOn(txs._2.getDate()).map(v -> v.add(premium(txs._2)))
                       : pf.valueOn(txs._2.getDate());
 
-                  // TODO instead of List<Tuple<BD, BD>> in each iteration multiply w/ accumulator
+                  // TODO growthFactors(): instead of List<Tuple<BD, BD>> in each iteration multiply
+                  //  w/ accumulator
                   List<Result<BigDecimal>> result = t._1
                       .prepend(Result
                           .map2(Vinit, Vend,
@@ -105,7 +106,7 @@ final class Utilities {
                                   .map(price -> tx.getPrice()
                                                   .subtract(price)
                                                   .multiply(new BigDecimal(tx.getNumShares())));
-      // TODO clean-up
+      // TODO premium: clean-up getOrThrow()
       return f.getOrThrow();
   }
 

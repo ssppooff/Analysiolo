@@ -21,10 +21,6 @@ import picocli.CommandLine.HelpCommand;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
-/* TODO:
-
-* */
-
 class FooOptions {
     @SuppressWarnings("FieldMayBeFinal")
     @Option(names = {"--dry-run", "-n"})
@@ -339,13 +335,12 @@ public class Analysiolo {
         //    - date -> transactions up to & incl. date, twrr on date
         //    - period -> transactions inside period (inclusive), twrr on second/last date
 
-        // TODO twrr_
         // Filter transactions based on filters
         List<Transaction> lTx = list_(options).getOrThrow();
 
         LocalDate endDate = Utilities.parseTimeFilter(options.tfOptions).last().getOrThrow();
-        // TODO: fail-fast for Res.fail & Res.empty
-        // TODO list() -> streams()
+        // TODO twrr_: fail-fast for Res.fail & Res.empty
+        // TODO twrr_: list() -> streams()
         Result<List<BigDecimal>> growthFactors = Utilities.growthFactors(lTx, endDate);
 
         return growthFactors.map(l -> l.reduce(BigDecimal::multiply)
@@ -368,7 +363,7 @@ public class Analysiolo {
         }
 
         if (fooOptions.dryRun) {
-            // TODO twrr dry-run
+            // TODO twrr: dry-run
             // -- TimeFilter date/period
             // -- Stockfilter
             // -- DB create, use existing
@@ -376,7 +371,7 @@ public class Analysiolo {
             dryRunOutput();
             return 0;
         } else {
-            // TODO twrr correct output
+            // TODO twrr: correct output
             Result<BigDecimal> output = twrr_(fooOptions);
             output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
                 + " " + err));
