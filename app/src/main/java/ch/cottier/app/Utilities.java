@@ -73,6 +73,13 @@ final class Utilities {
       return s.append(", and ").append(stockFilter.get(stockFilter.size() - 1)).toString();
   }
 
+  /* The portfolio's change in value is not just the difference in its value at the period's
+   * endpoints, you also have to take into consideration the acquisition and selling prices. This is
+   * due to the spread of a share's price. When shares are bought at the period's beginning, the
+   * relevant difference in value is between the acquisition price and the value at the end. When
+   * selling share at the end of the period, the relevant difference is between the value at the
+   * beginning of the period and the selling price at the end.
+   */
   static Result<Tuple<Portfolio, Result<BigDecimal>>> computeFactor(
       Portfolio currPortfolio, Transaction currTx, Transaction nxtTx) {
     return currPortfolio.updateWith(currTx).map(updPf -> {
