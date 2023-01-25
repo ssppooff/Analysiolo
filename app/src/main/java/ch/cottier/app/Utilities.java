@@ -73,41 +73,44 @@ final class Utilities {
       return s.append(", and ").append(stockFilter.get(stockFilter.size() - 1)).toString();
   }
 
-  static Result<List<BigDecimal>> growthFactors(List<Transaction> lTx, LocalDate endDate) {
-      List<Transaction> lTx2 = lTx.tail()
-                                  .append(Transaction.transaction(endDate, "", 1, BigDecimal.ZERO));
-      List<Result<BigDecimal>> factors = List.list();
-      return List.flattenResult(
-          lTx.zip(lTx2).foldLeft(new Tuple<>(factors, Portfolio.empty()),
-              t -> txs -> {
-                  var pf = t._2.updateWith(txs._1).getOrThrow();
+  static Result<Tuple<Portfolio, Result<BigDecimal>>> computeFactor(
+      Portfolio currPortfolio, Transaction currTx, Transaction nxtTx) {
+    return currPortfolio.updateWith(currTx).map(updPf -> {
+      Result<BigDecimal> Vinit = currTx.getNumShares() > 0 // BUY
+          ? Result.map2(updPf.valueOn(currTx.getDate()), premium(currTx), val -> val::add)
+          : updPf.valueOn(currTx.getDate());
+      Result<BigDecimal> Vend = nxtTx.getNumShares() < 0 // SELL
+          ? Result.map2(updPf.valueOn(nxtTx.getDate()), premium(nxtTx), val -> val::add)
+          : updPf.valueOn(nxtTx.getDate());
 
-                  Result<BigDecimal> Vinit = txs._1.getNumShares() > 0 // BUY
-                      ? pf.valueOn(txs._1.getDate()).map(v -> v.add(premium(txs._1)))
-                      : pf.valueOn(txs._1.getDate());
-                  Result<BigDecimal> Vend = txs._2.getNumShares() < 0 // SELL
-                      ? pf.valueOn(txs._2.getDate()).map(v -> v.add(premium(txs._2)))
-                      : pf.valueOn(txs._2.getDate());
+      Result<BigDecimal> factor = Result.map2(Vinit, Vend,
+          init -> end -> end.divide(init, RoundingMode.HALF_UP));
 
-                  // TODO growthFactors(): instead of List<Tuple<BD, BD>> in each iteration multiply
-                  //  w/ accumulator
-                  List<Result<BigDecimal>> result = t._1
-                      .prepend(Result
-                          .map2(Vinit, Vend,
-                              init -> end -> end.divide(init, RoundingMode.HALF_UP)));
-
-                  return new Tuple<>(result, pf);
-              })._1);
+      return new Tuple<>(updPf, factor);
+    });
   }
 
-  static BigDecimal premium(Transaction tx) {
-      Result<BigDecimal> f = Stock.stock(tx.getSymbol().getSymbolStr())
-                                  .flatMap(s -> s.getPriceOn(tx.getDate()))
-                                  .map(price -> tx.getPrice()
-                                                  .subtract(price)
-                                                  .multiply(new BigDecimal(tx.getNumShares())));
-      // TODO premium: clean-up getOrThrow()
-      return f.getOrThrow();
+  static Result<List<BigDecimal>> growthFactors(List<Transaction> lTx, LocalDate endDate) {
+    // Empty transaction at the end, to be able to apply computeFactors() to the entire list,
+    // without special case for the last transaction
+    List<Transaction> lTx2 = lTx.tail()
+                                .append(Transaction.transaction(endDate, "", 1, BigDecimal.ZERO));
+
+    List<Result<BigDecimal>> factors = List.list();
+    return lTx.zip(lTx2)
+              .foldLeft(Result.success(new Tuple<>(Portfolio.empty(), factors)), acc -> txs ->
+                  acc.flatMap(t -> computeFactor(t._1, txs._1, txs._2)
+                                       .map(res -> new Tuple<>(res._1, t._2.prepend(res._2)))))
+              .map(Tuple::_2)
+              .flatMap(List::flattenResult);
+  }
+
+  static Result<BigDecimal> premium(Transaction tx) {
+    return Stock.stock(tx.getSymbol().getSymbolStr())
+                .flatMap(s -> s.getPriceOn(tx.getDate()))
+                .map(price -> tx.getPrice()
+                                .subtract(price)
+                                .multiply(new BigDecimal(tx.getNumShares())));
   }
 
   private enum Theme {
