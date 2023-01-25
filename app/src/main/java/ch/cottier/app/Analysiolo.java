@@ -329,31 +329,21 @@ public class Analysiolo {
         }
     }
 
-    static Result<BigDecimal> twrr_(FooOptions options) {
-        // - twrr (date, period): 1) filtered transactions, always filter stocks 2) twrr until specific date
-        //    - no date or period -> all transactions
-        //    - date -> transactions up to & incl. date, twrr on date
-        //    - period -> transactions inside period (inclusive), twrr on second/last date
-
-        // Filter transactions based on filters
-        List<Transaction> lTx = list_(options).getOrThrow();
-
-        LocalDate endDate = Utilities.parseTimeFilter(options.tfOptions).last().getOrThrow();
-        // TODO twrr_: fail-fast for Res.fail & Res.empty
-        // TODO twrr_: list() -> streams()
-        Result<List<BigDecimal>> growthFactors = Utilities.growthFactors(lTx, endDate);
-
-        return growthFactors.map(l -> l.reduce(BigDecimal::multiply)
-                                       .subtract(BigDecimal.ONE));
-
-        /* How to compute TWRR
-           - The time-weighted return breaks up the return on an investment portfolio into separate
-             intervals based on whether money was added or withdrawn from the fund.
-           - The time-weighted return measure is also called the geometric mean return, which is a
-             complicated way of stating that the returns for each sub-period are multiplied by each
-             other.
-         */
-    }
+  /* How to compute TWRR
+     - The time-weighted return breaks up the return on an investment portfolio into separate
+       intervals based on whether money was added or withdrawn from the fund.
+     - The time-weighted return measure is also called the geometric mean return, which is a
+       complicated way of stating that the returns for each sub-period are multiplied by each
+       other.
+   */
+  static Result<BigDecimal> twrr_(FooOptions options) {
+    return list_(options)
+               .flatMap(lTx -> Utilities.parseTimeFilter(options.tfOptions).last()
+                                        .flatMap(endDate ->
+                                                     Utilities.growthFactors(lTx, endDate)))
+               .map(factors -> factors.reduce(BigDecimal::multiply)
+                                      .subtract(BigDecimal.ONE));
+  }
 
     @Command(name = "twrr")
     int TWRR(@Mixin FooOptions fooOptions) {
