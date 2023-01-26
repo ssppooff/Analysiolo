@@ -405,4 +405,10 @@ final class Utilities {
                 + row.reduce(" ", innerStr -> el -> innerStr + el + " ")
                 + "\n");
     }
+
+  static void printResultTable(Result<String> table) {
+    table.failIfEmpty("No transaction corresponds to filter criteria")
+         .forEachOrFail(System.out::println)
+         .forEach(err -> System.out.println("Error: " + err));
+  }
 }
