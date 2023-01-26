@@ -36,14 +36,14 @@ class StockTest {
     LocalDate date1 = LocalDate.parse("2022-01-01");
     LocalDate date2 = LocalDate.parse("2022-01-03");
 
-    if (stock.getSymbol().getSymbolStr().equals("^GSPC")) {
+    if (stock.getSymbol().toString().equals("^GSPC")) {
       Result<BigDecimal> price = assertSuccess(stock.historicalPrice(date1));
       price.forEach(p -> assertEquals(new BigDecimal("4766.180176"), p));
 
       price = assertSuccess(stock.historicalPrice(date2));
       price.forEach(p -> assertEquals(new BigDecimal("4796.560059"), p));
     }
-    if (stock.getSymbol().getSymbolStr().equals("TSLA")) {
+    if (stock.getSymbol().toString().equals("TSLA")) {
       Result<BigDecimal> price = assertSuccess(stock.historicalPrice(date1));
       price.forEach(p -> assertEquals(new BigDecimal("352.260010"), p));
 
@@ -57,9 +57,9 @@ class StockTest {
   void getPriceOn() {
     LocalDate date = LocalDate.parse("2022-08-25");
     Result<BigDecimal> price = assertSuccess(stock.getPriceOn(date));
-    if (stock.getSymbol().getSymbolStr().equals("^GSPC"))
+    if (stock.getSymbol().toString().equals("^GSPC"))
       price.forEach(p -> assertEquals(new BigDecimal("4199.120117"), p));
-    if (stock.getSymbol().getSymbolStr().equals("TSLA"))
+    if (stock.getSymbol().toString().equals("TSLA"))
       price.forEach(p -> assertEquals(new BigDecimal("296.070007"), p));
   }
 
@@ -70,9 +70,9 @@ class StockTest {
     stock = assertSuccess(stock.fillHistoricalData(fillDate)).getOrThrow();
     BigDecimal price = assertSuccess(stock.getPriceOn(fillDate.plusDays(2))).getOrThrow();
 
-    if (stock.getSymbol().getSymbolStr().equals("^GSPC"))
+    if (stock.getSymbol().toString().equals("^GSPC"))
       assertEquals(new BigDecimal("3732.040039"), price);
-    if (stock.getSymbol().getSymbolStr().equals("TSLA"))
+    if (stock.getSymbol().toString().equals("TSLA"))
       assertEquals(new BigDecimal("231.593338"), price);
   }
 }

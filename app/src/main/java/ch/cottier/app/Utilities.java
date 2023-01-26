@@ -113,7 +113,7 @@ final class Utilities {
   }
 
   static Result<BigDecimal> premium(Transaction tx) {
-    return Stock.stock(tx.getSymbol().getSymbolStr())
+    return Stock.stock(tx.getSymbol().toString())
                 .flatMap(s -> s.getPriceOn(tx.getDate()))
                 .map(price -> tx.getPrice()
                                 .subtract(price)
@@ -248,7 +248,7 @@ final class Utilities {
     static Function<Transaction, Boolean> symbolComparator(final java.util.List<String> symbols) {
         return symbols == null
             ? tx -> true
-            : tx -> symbols.contains(tx.getSymbol().getSymbolStr());
+            : tx -> symbols.contains(tx.getSymbol().toString());
     }
 
     static List<Symbol> parseStockFilter(java.util.List<String> filter) {
@@ -263,8 +263,7 @@ final class Utilities {
         if (filter.date != null)
             return tx -> tx.getDate().compareTo(filter.date) <= 0;
         else {
-            List<String> period = List.of(filter.period);
-            if (period.size() == 1) {
+            List<String> period = List.of(filter.period);            if (period.size() == 1) {
                 return switch (period.head()) {
                     case "now" -> tx -> tx.getDate().equals(LocalDate.now());
                     case "inception" -> tx -> true;

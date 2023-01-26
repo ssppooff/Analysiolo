@@ -69,7 +69,7 @@ public class Parser {
 
   public static Result<Map<Symbol, StockPosition>> parseStockPositions(List<Transaction> l, LocalDate historyFrom) {
     Map<Symbol, Integer> shares = parsePositions(l).filter(sym -> nShares -> nShares != 0);
-    List<String> symbols = shares.toList(t -> ignoreVal -> t.getSymbolStr());
+    List<String> symbols = shares.toList(t -> ignoreVal -> t.toString());
     return Stock.stocks(symbols)
         .map(stocksMap -> stocksMap
             .zipValWith(shares, ignoreSym -> emptyStock -> nShares ->

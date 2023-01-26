@@ -13,14 +13,9 @@ public class Symbol {
         : Result.success(name);
   }
 
-  public String getSymbolStr() {
-    return symbol;
-  }
-
   public Result<String> getName() {
     return name;
   }
-
 
   public static Symbol symbol(String symbol) {
     return new Symbol(symbol, "");
@@ -29,6 +24,7 @@ public class Symbol {
   public static Symbol symbol(String symbol, String name) {
     return new Symbol(symbol, name);
   }
+
   @Override
   public String toString() {
     return symbol;

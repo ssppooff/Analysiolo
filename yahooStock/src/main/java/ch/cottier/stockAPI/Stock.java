@@ -145,7 +145,7 @@ public class Stock {
   }
 
   public static Result<Stock> stock(Symbol symbol, LocalDate from) {
-    return stock(symbol.getSymbolStr(), from);
+    return stock(symbol.toString(), from);
   }
 
   public static Result<Stock> stock(String symbol, LocalDate from) {
