@@ -459,6 +459,11 @@ public abstract class List<E> extends AbstractSequentialList<E> {
     return l;
   }
 
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public static <E> List<List<E>> of(List<E> l) {
+    return new Node<>(l, List.EMPTY);
+  }
+
   public static <E> List<E> of(Collection<? extends E> c) {
     ListIterator<? extends E> it = c.stream().toList().listIterator(c.size());
     List<E> res = list();
