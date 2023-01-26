@@ -205,11 +205,11 @@ public class Analysiolo {
                 .map(Utilities::changeFormat)
                 .map(t -> {
                     if (t._1.size() == 1)
-                        return Utilities.applyTheme(t, Utilities.themeSimple());
+                        return Utilities.applyTheme(t._1, t._2, Utilities.themeSimple());
                     else {
                         t = t.mapRight(m -> m.mapVal(Utilities::addChangeMetrics))
                              .mapLeft(header -> List.concat(header, List.of("𝝙", "𝝙 (%)")));
-                        return Utilities.applyTheme(t, Utilities.themeChangeMetrics());
+                        return Utilities.applyTheme(t._1, t._2, Utilities.themeChangeMetrics());
                     }
                 })
                 .map(Utilities::renderTable);
@@ -316,16 +316,13 @@ public class Analysiolo {
             return 0;
         } else {
             List<String> colNames = List.of("avg cost", "min", "max");
-            Result<Map<Symbol, List<BigDecimal>>> data =
-                avgCost_(fooOptions);
-            var output = data
-                .map(out -> new Tuple<>(colNames, out))
-                .map(t -> Utilities.applyTheme(t, Utilities.themeSimple()))
+            Result<Map<Symbol, List<BigDecimal>>> result = avgCost_(fooOptions);
+            Result<String> renderedTable = result
+                .map(mapData ->
+                    Utilities.applyTheme(colNames, mapData, Utilities.themeSimple()))
                 .map(Utilities::renderTable);
-            output.failIfEmpty("No transaction corresponds to filter criteria")
-                  .forEachOrFail(System.out::println)
-                  .forEach(err -> System.out.println("Error: " + err));
-            return data.isFailure() ? -1 : 0;
+            Utilities.printResultTable(renderedTable);
+            return result.isFailure() ? -1 : 0;
         }
     }
 

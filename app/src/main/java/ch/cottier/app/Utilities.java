@@ -279,23 +279,22 @@ final class Utilities {
         }
     }
 
-    static List<List<String>> applyTheme(Tuple<List<String>, Map<Symbol, List<BigDecimal>>> data,
-        Function<List<List<String>>, List<List<String>>> theme) {
-        List<String> header = List.list();
-        Map<Symbol, List<BigDecimal>> priceData = data._2;
+  static List<List<String>> applyTheme(List<String> colNames, List<List<BigDecimal>> data,
+      Function<List<List<String>>, List<List<String>>> theme) {
+    List<List<String>> tableData = data.map(rowData -> rowData
+                                           .map(price ->
+                                                    String.format("%.3f", price)));
+    return theme.apply(tableData.prepend(colNames));
+  }
 
-        header = data._1.foldRight(header, colName -> hd -> hd.prepend(colName))
-                        .prepend("");
-
-        List<List<String>> strData = priceData
-            .toList(sym -> prices -> prices
-                .map(priceBD -> String.format("%.3f", priceBD))
-                .prepend(sym.getSymbolStr()))
-            .prepend(header);
-
-        // Apply theme
-        return theme.apply(strData);
-    }
+  static <RowName> List<List<String>> applyTheme(List<String> colNames,
+      Map<RowName, List<BigDecimal>> dataMap,
+      Function<List<List<String>>, List<List<String>>> theme) {
+    List<List<String>> tableData = dataMap.toList(rowName -> rowData ->
+                                                      rowData.map(Utilities::renderPrice)
+                                           .prepend(rowName.toString()));
+    return theme.apply(tableData.prepend(colNames.prepend("")));
+  }
 
     static Function<List<List<String>>, List<List<String>>> themeSimple() {
         String horzSep = "-";
@@ -410,5 +409,9 @@ final class Utilities {
     table.failIfEmpty("No transaction corresponds to filter criteria")
          .forEachOrFail(System.out::println)
          .forEach(err -> System.out.println("Error: " + err));
+  }
+
+  static String renderPrice(BigDecimal price) {
+    return String.format("%.3f", price);
   }
 }
