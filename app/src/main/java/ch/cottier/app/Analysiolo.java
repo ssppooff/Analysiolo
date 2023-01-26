@@ -333,36 +333,60 @@ public class Analysiolo {
        complicated way of stating that the returns for each sub-period are multiplied by each
        other.
    */
-  static Result<BigDecimal> twrr_(FooOptions options) {
-    return list_(options)
-               .flatMap(lTx -> Utilities.parseTimeFilter(options.tfOptions).last()
-                                        .flatMap(endDate ->
-                                                     Utilities.growthFactors(lTx, endDate)))
-               .map(factors -> factors.reduce(BigDecimal::multiply)
-                                      .subtract(BigDecimal.ONE));
+  Result<Tuple<List<LocalDate>, List<BigDecimal>>> twrr_(FooOptions options) {
+    return list_(options).flatMap(lTx -> {
+      List<LocalDate> dates = Utilities.parseTimeFilter(options.tfOptions);
+      List<LocalDate> adjDates =
+          dates.size() == 1
+              ? dates.prepend(lTx.head().getDate())
+              : dates.head().equals(LocalDate.parse("1000-01-01"))
+                  ? dates.tail().prepend(lTx.head().getDate())
+                  : dates;
+
+      // portfolio value on date1 | value on date2 | twrr
+      return Utilities.growthFactors(lTx, adjDates.tail().head())
+                 .map(factors -> factors.reduce(BigDecimal::multiply)
+                                        .subtract(BigDecimal.ONE))
+                 .flatMap(twrr -> List.flattenResult(adjDates.map(d -> valueOnDateFromTx(lTx, d)))
+                     .map(pfValuations -> pfValuations.append(twrr))
+                         .map(data ->
+                             new Tuple<>(adjDates, data)));
+    });
   }
 
-    @Command(name = "twrr")
-    int TWRR(@Mixin FooOptions fooOptions) {
-        if (fooOptions.tfOptions != null && fooOptions.tfOptions.date != null) {
-            System.out.println("--date option not supported with twrr command");
-            return -1;
-        }
-
-        if (fooOptions.dryRun) {
-            // TODO twrr: dry-run
-            // -- TimeFilter date/period
-            // -- Stockfilter
-            // -- DB create, use existing
-            // -- Ingest txFile
-            dryRunOutput();
-            return 0;
-        } else {
-            // TODO twrr: correct output
-            Result<BigDecimal> output = twrr_(fooOptions);
-            output.forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
-                + " " + err));
-            return output.isFailure() ? -1 : 0;
-        }
+  @Command(name = "twrr")
+  int TWRR(@Mixin FooOptions fooOptions) throws Exception {
+    if (fooOptions.tfOptions != null && fooOptions.tfOptions.date != null) {
+      System.out.println("--date option not supported with twrr command");
+      return -1;
     }
+
+    Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
+    if (dbValidation.isFailure()) {
+      dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
+      return -1;
+    }
+
+    if (fooOptions.dryRun) {
+      dbValidation.forEach(System.out::println);
+      dryRunFile(fooOptions.txFile);
+      dryRunStockFilter(fooOptions.stockFilter);
+      dryRunTimeFiler(fooOptions.tfOptions);
+      System.out.println("Computing TWRR");
+      dryRunOutput();
+      return 0;
+    } else {
+      Result<Tuple<List<LocalDate>, List<BigDecimal>>> result = twrr_(fooOptions);
+      Result<String> renderedTable =
+          result.map(tpl -> tpl._1.map(LocalDate::toString).append("TWRR"))
+                .flatMap(colNames -> result.map(Tuple::_2)
+                    .map(data ->
+                        Utilities.applyTheme(colNames, List.of(data), Utilities.themeSimple()))
+                    .map(Utilities::renderTable));
+
+      System.out.println("Value of portfolio on dates, followed by TWRR during the period");
+      Utilities.printResultTable(renderedTable);
+      return result.isFailure() ? -1 : 0;
+    }
+  }
 }
