@@ -1,50 +1,49 @@
 # Analysiolo
-Command line utility to compute metrics about a stock or a stock portfolio. The metrics include:
-- current price and historical closing-price of a stock,
-- value of a portfolio,
-- a stock's average, min, and max purchase price, and
-- Time-Weighted Rate or Return (TWRR) of a portfolio ([Investopedia](https://www.investopedia.com/terms/t/time-weightedror.asp), [Wikipedia](https://en.wikipedia.org/wiki/Time-weighted_return)).
-
-Download the latest development release: [link](https://github.com/ssppooff/Analysiolo/releases)
+Command line utility to compute metrics about a stock or a stock portfolio, including
+- the current price and historical closing-price of a stock,
+- the value of a portfolio,
+- a stock's average, min, and max purchase price; and
+- the Time-Weighted Rate or Return (TWRR) of a portfolio ([Investopedia](https://www.investopedia.com/terms/t/time-weightedror.asp), [Wikipedia](https://en.wikipedia.org/wiki/Time-weighted_return)).
 
 # Table of Content
 - [Additional Details](https://github.com/ssppooff/Analysiolo#additional-details)
-    - [Implementation Details](https://github.com/ssppooff/Analysiolo#implementation-details)
-- [Demo Data](https://github.com/ssppooff/Analysiolo-devel#demo-data)
+	- [Implementation Details](https://github.com/ssppooff/Analysiolo#implementation-details)
+- [Demo Data](https://github.com/ssppooff/Analysiolo#demo-data)
 - [Roadmap / Trello](https://github.com/ssppooff/Analysiolo#roadmap--trello)
 - [Usage](https://github.com/ssppooff/Analysiolo#usage)
-    - [Creating a new database](https://github.com/ssppooff/Analysiolo#creating-a-new-database)
-    - [Ingesting Transactions](https://github.com/ssppooff/Analysiolo#ingesting-transactions)
-    - [Using an existing database](https://github.com/ssppooff/Analysiolo#using-an-existing-database)
-    - [Transaction Syntax](https://github.com/ssppooff/Analysiolo#transaction-syntax)
-    - [Dry-run](https://github.com/ssppooff/Analysiolo#dry-run)
+	- [Creating a new database](https://github.com/ssppooff/Analysiolo#creating-a-new-database)
+	- [Ingesting Transactions](https://github.com/ssppooff/Analysiolo#ingesting-transactions)
+	- [Using an existing database](https://github.com/ssppooff/Analysiolo#using-an-existing-database)
+	- [Transaction Syntax](https://github.com/ssppooff/Analysiolo#transaction-syntax)
+	- [Dry-run](https://github.com/ssppooff/Analysiolo#dry-run)
 - [Fetching Stock Prices](https://github.com/ssppooff/Analysiolo#fetching-stock-prices)
-    - [Listing Transactions](https://github.com/ssppooff/Analysiolo#listing-transactions)
-    - [Filtering transactions](https://github.com/ssppooff/Analysiolo#filtering-transactions)
+	- [Filtering for ticker symbols & dates](https://github.com/ssppooff/Analysiolo#filtering-for-ticker-symbols--dates)
+- [Listing Transactions](https://github.com/ssppooff/Analysiolo#listing-transactions)
+	- [Filtering transactions](https://github.com/ssppooff/Analysiolo#filtering-transactions)
 - [Value of a Portfolio](https://github.com/ssppooff/Analysiolo#filtering-transactions)
-    - [Filtering a portfolio](https://github.com/ssppooff/Analysiolo#filtering-transactions)
+	- [Filtering a portfolio](https://github.com/ssppooff/Analysiolo#filtering-transactions)
 - [Average Cost](https://github.com/ssppooff/Analysiolo#average-cost)
-    - [Filtering for average cost](https://github.com/ssppooff/Analysiolo#filtering-for-average-cost)
+	- [Filtering for average cost](https://github.com/ssppooff/Analysiolo#filtering-for-average-cost)
 - [Time-Weighted Rate of Return (TWRR)](https://github.com/ssppooff/Analysiolo#time-weighted-rate-of-return-twrr)
-    - [Filtering for TWRR](https://github.com/ssppooff/Analysiolo#time-weighted-rate-of-return-twrr)
+	- [Filtering for TWRR](https://github.com/ssppooff/Analysiolo#time-weighted-rate-of-return-twrr)
 
 # Additional Details
-- Stock Market data from [Yahoo Finance](https://finance.yahoo.com).
-- Transactions are input via file and stored inside a database, allowing the piecemeal build-up of the portfolio.
-- The stored transactions can be filtered by stocks and time periods.
+- Stock Market data from [Yahoo Finance](https://finance.yahoo.com)
+- Transactions are input via file and stored inside a database, allowing the piecemeal build-up of the portfolio
+- The stored transactions can be filtered by stocks and time periods
 
 ## Implementation Details
-- Implemented in Java on SDK 17 (Amazon Coretto).
-- Based on 3 modules: wrapper around YahooFinanceAPI, functional-programming library (see below), app (utilities and CLI code).
-- Unit tests for main functionality in each module.
-- BigDecimal for currency calculations.
-- Using package YahooFinanceAPI ([website](https://financequotes-api.com), [github](https://github.com/sstrickx/yahoofinance-api), [javadoc](https://financequotes-api.com/javadoc/yahoofinance/YahooFinance.html)).
-- Utilizing own library to write in a more functional-programming style, going beyond what Java natively supports (style and library based on book [Functional Programming in Java, Pierre-Yves Saumont, Manning](https://www.manning.com/books/functional-programming-in-java)).
-- Wrapper classes around YahooFinanceAPI to use it in a functional-programming style.
-- Assembled into a single binary.
+- Implemented in Java on SDK 17 (Amazon Coretto)
+- Based on 3 modules: wrapper around YahooFinanceAPI, functional-programming library (see below), app (utilities and CLI code)
+- Unit tests for main functionality in each module
+- BigDecimal for currency calculations
+- Using package YahooFinanceAPI ([website](https://financequotes-api.com), [github](https://github.com/sstrickx/yahoofinance-api), [javadoc](https://financequotes-api.com/javadoc/yahoofinance/YahooFinance.html))
+- Utilizing own library to write in a more functional-programming style, beyond what Java natively supports (style and library based on book [_Functional Programming in Java_ by Pierre-Yves Saumont, Manning](https://www.manning.com/books/functional-programming-in-java))
+- Wrapper classes around YahooFinanceAPI to use it in a functional-programming style
+- Assembled into a single binary
 
 # Demo Data
-The file `demo_transactions.txt` inside the folder `demoData` contains a list of transactions for demonstration purposes. The database `demoDB.mv.db` contains the same transactions in databse form. To create the same database see [Creating a new database](https://github.com/ssppooff/Analysiolo#creating-a-new-database) on how to load the transactions into a database.
+The file `demo_transactions.txt` inside the folder `demoData` contains a list of transactions for demonstration purposes. The database `demoDB.mv.db` contains the same transactions in database form. To create the same database see [Creating a new database](https://github.com/ssppooff/Analysiolo#creating-a-new-database) on how to load the transactions into a database.
 
 # Roadmap / Trello
 Trello board: https://trello.com/b/snjbAtZ6/analysiolo
@@ -54,7 +53,7 @@ The program has several subcommands (much like Git's `git status`, `git commit`,
 
 Every command needs some transactions to work (except for the subcommand `price`, see [Fetching Stock Prices](https://github.com/ssppooff/Analysiolo#fetching-stock-prices)).
 
-The transactions are specified in a file (see [Transaction Syntax](https://github.com/ssppooff/Analysiolo#transaction-syntax)) then fed into a database. The database can be reused each time, allowing to build up the porfolio over time, by inputting only the latest transactions.
+The transactions are specified in a file (see [Transaction Syntax](https://github.com/ssppooff/Analysiolo#transaction-syntax)) then fed into a database. The database can be reused each time, allowing to build up the porfolio over time by inputting only the latest transactions.
 
 ### Creating a new database
 To create a new database, specify a file containing transactions using `--file` or `-f` and the flag `--create-database` or `-c`.
@@ -89,12 +88,12 @@ In a plaintext file (extension doesn't matter), each line represents a transacti
 - The number of shares bought (positive number) or sold (negative number)
 - The price (always positive)
 
-For example, if on February 18, 2021, you bought 11 shares of S&P 500 (ticker `^GSPC`) for 3'930.60, it should be written as follows
+For example, if on February 18, 2021, you bought 11 shares of S&P 500 (ticker `^GSPC`) for 3'930.60, it should be written as
 ```
 2021-02-18 BUY ^GSPC +11 3930.60
 ```
 
-Or for example, selling 5 shares of S&P 500 on the March 3 of the same year for 3'820.40, should be written as
+Or, selling 5 shares of S&P 500 on March 3, 2021 for 3'820.40, should be written as
 ```
 2021-03-03 SELL ^GSPC -5 3820.40
 ```
@@ -113,10 +112,11 @@ Outputting result
 ```
 
 ## Fetching Stock Prices
-The subcommand `price` directly fetches price information from [Yahoo Finance](https://finance.yahoo.com), i.e., no transactions are necessary. However, at least one Yahoo ticker symbol must be given, and note that the ticker symbol is not always very intuitive (e.g. `^GSPC` for the S&P 500). Also, depending on your shell some symbols may need double quotes (zsh `"^GSPC"`).
+The subcommand `price` directly fetches price information from [Yahoo Finance](https://finance.yahoo.com), i.e., no transactions are necessary. However, at least one Yahoo ticker symbol must be given, and note that the ticker symbol is not always very intuitive (e.g. `^GSPC` for the S&P 500). Also, depending on your shell some symbols may need double quotes (e.g., for zsh `"^GSPC"`).
 
 Additionally, a date or time period can be given using `--date` or `--period`, respectively.
 
+### Filtering for ticker symbols & dates
 Some examples to better illustrate what will be output with which flag:
 
 - No date or period -> current market price for each stock (time of writing 2023-01-31 12:52)
@@ -156,7 +156,7 @@ analysiolo list -d ~/home/myPortfolio.mv.db -f ~/home/newTransactions.txt
 ```
 
 ### Filtering transactions
-Additionally, it is possible to limit which transactions to list (note: all transactions are ingested into the database).
+Additionally, it is possible to limit which transactions to list (note: if a file containing transactions is given, all transactions therein are ingested into the database).
 
 - `--filter` limits transactions to the ticker symbols given
 - `--date` displayes transactions from that date only
