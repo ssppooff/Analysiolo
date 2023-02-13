@@ -10,6 +10,8 @@ Download the latest development release: [link](https://github.com/ssppooff/Anal
 # Table of Content
 - [Additional Details](https://github.com/ssppooff/Analysiolo#additional-details)
     - [Implementation Details](https://github.com/ssppooff/Analysiolo#implementation-details)
+- [Demo Data](https://github.com/ssppooff/Analysiolo-devel#demo-data)
+- [Roadmap / Trello](https://github.com/ssppooff/Analysiolo#roadmap--trello)
 - [Usage](https://github.com/ssppooff/Analysiolo#usage)
     - [Creating a new database](https://github.com/ssppooff/Analysiolo#creating-a-new-database)
     - [Ingesting Transactions](https://github.com/ssppooff/Analysiolo#ingesting-transactions)
@@ -25,7 +27,6 @@ Download the latest development release: [link](https://github.com/ssppooff/Anal
     - [Filtering for average cost](https://github.com/ssppooff/Analysiolo#filtering-for-average-cost)
 - [Time-Weighted Rate of Return (TWRR)](https://github.com/ssppooff/Analysiolo#time-weighted-rate-of-return-twrr)
     - [Filtering for TWRR](https://github.com/ssppooff/Analysiolo#time-weighted-rate-of-return-twrr)
-- [Roadmap / Trello](https://github.com/ssppooff/Analysiolo#roadmap--trello)
 
 # Additional Details
 - Stock Market data from [Yahoo Finance](https://finance.yahoo.com).
@@ -41,6 +42,12 @@ Download the latest development release: [link](https://github.com/ssppooff/Anal
 - Utilizing own library to write in a more functional-programming style, going beyond what Java natively supports (style and library based on book [Functional Programming in Java, Pierre-Yves Saumont, Manning](https://www.manning.com/books/functional-programming-in-java)).
 - Wrapper classes around YahooFinanceAPI to use it in a functional-programming style.
 - Assembled into a single binary.
+
+# Demo Data
+The file `demo_transactions.txt` inside the folder `demoData` contains a list of transactions for demonstration purposes. The database `demoDB.mv.db` contains the same transactions in databse form. To create the same database see [Creating a new database](https://github.com/ssppooff/Analysiolo#creating-a-new-database) on how to load the transactions into a database.
+
+# Roadmap / Trello
+Trello board: https://trello.com/b/snjbAtZ6/analysiolo
 
 # Usage
 The program has several subcommands (much like Git's `git status`, `git commit`, etc.) and will output an error with a help message if run without one.
@@ -243,6 +250,3 @@ Similarly to the other subcommands, `--filter` filters for certain stocks, e.g. 
 ```
 analysiolo twrr -d ~/home/myPortfolio.mv.db --period 2022-06-10 2023-01-25 --filter ^GSPC TSLA
 ```
-
-# Roadmap / Trello
-Trello board: https://trello.com/b/snjbAtZ6/analysiolo
