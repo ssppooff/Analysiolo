@@ -253,7 +253,7 @@ public class Analysiolo {
 
             List<LocalDate> dates = Utilities.parseTimeFilter(fooOptions.tfOptions);
             dates.forEach(date ->
-                System.out.println("Computing value of portfolio on date + " + date));
+                System.out.println("Computing value of portfolio on date " + date));
             if (dates.size() == 2)
                 System.out.println("Adding change metrics");
 
