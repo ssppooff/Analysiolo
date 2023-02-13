@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
 class PortfolioTest {
-  String path = "src/test/java/testdata.txt";
+  String path = "src/test/resources/testdata.txt";
   @SuppressWarnings("unused")
   <T> Result<T> assertSuccess(Result<T> r) {
     assertTrue(r.isSuccess(), r.toString());

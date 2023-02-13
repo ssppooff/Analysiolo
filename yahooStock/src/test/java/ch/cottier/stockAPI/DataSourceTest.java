@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class DataSourceTest {
-  String path = "src/test/java/testdata.txt";
+  String path = "src/test/resources/testdata.txt";
 
   // Data for test transaction
   static LocalDate date = LocalDate.parse("2022-02-18");

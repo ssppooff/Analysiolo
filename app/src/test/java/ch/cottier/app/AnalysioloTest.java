@@ -24,10 +24,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class AnalysioloTest {
-  String path = "src/test/java/testdata.txt";
-//  String pathErrorFile = "src/test/java/testdata_error.txt";
-  String pathAdditional = "src/test/java/testdata_additional.txt";
-  String pathAdditionalError = "src/test/java/testdata_additional_error.txt";
+  String path = "src/test/resources/testdata.txt";
+//  String pathErrorFile = "src/test/resources/testdata_error.txt";
+  String pathAdditional = "src/test/resources/testdata_additional.txt";
+  String pathAdditionalError = "src/test/resources/testdata_additional_error.txt";
 
   @SuppressWarnings("unused")
   <T> Result<T> assertSuccess(Result<T> r) {
@@ -79,7 +79,7 @@ class AnalysioloTest {
   FooOptions.DBOptions prepDBOptions() {
     FooOptions.DBOptions db = new DBOptions();
     db.dbPath = null;
-    db.newDBPath = new File("src/test/java/testdb.mv.db");
+    db.newDBPath = new File("src/test/resources/testdb.mv.db");
     if (db.newDBPath.exists())
       assertTrue(db.newDBPath.delete());
 
@@ -107,7 +107,7 @@ class AnalysioloTest {
     options.tfOptions.period = java.util.List.of("2021-05-01", "2021-11-30");
 
     options.stockFilter = java.util.List.of("VTI");
-    options.txFile = new File("src/test/java/testdata.txt");
+    options.txFile = new File("src/test/resources/testdata.txt");
 
     Result<List<Transaction>> res = Analysiolo.list_(options);
     assertSuccess(res)
@@ -128,7 +128,7 @@ class AnalysioloTest {
     res = Analysiolo.list_(options);
     assertTrue(res.isEmpty());
 
-    options.dbOptions.dbPath = new File("src/test/java/testdb.mv.db");
+    options.dbOptions.dbPath = new File("src/test/resources/testdb.mv.db");
     options.dbOptions.newDBPath = null;
     options.tfOptions = null;
     options.txFile = null;
@@ -146,7 +146,7 @@ class AnalysioloTest {
     options.dbOptions = prepDBOptions();
     options.tfOptions = null;
     options.stockFilter = java.util.List.of("VTI");
-    options.txFile = new File("src/test/java/testdata.txt");
+    options.txFile = new File("src/test/resources/testdata.txt");
 
     var res = assertSuccess(Analysiolo.value_(options));
     BigDecimal expValue;
@@ -156,7 +156,7 @@ class AnalysioloTest {
         + options.stockFilter.toString() + ": " + l.head()._2));
 
     // Don't recreate database each time
-    options.dbOptions.dbPath = new File("src/test/java/testdb.mv.db");
+    options.dbOptions.dbPath = new File("src/test/resources/testdb.mv.db");
     options.dbOptions.newDBPath = null;
 
     options.txFile = null;
@@ -291,8 +291,8 @@ class AnalysioloTest {
     String dateStr2 = "2022-11-07";
 
     // 1. new database, ingest txs -> stock filter AVUV
-    options.dbOptions.newDBPath = new File("src/test/java/testdb.mv.db");
-    options.txFile = new File("src/test/java/testdata.txt");
+    options.dbOptions.newDBPath = new File("src/test/resources/testdb.mv.db");
+    options.txFile = new File("src/test/resources/testdata.txt");
     options.stockFilter = java.util.List.of("AVUV");
     Result<Map<Symbol, List<BigDecimal>>> res = Analysiolo.avgCost_(options);
 
@@ -302,7 +302,7 @@ class AnalysioloTest {
     res.forEachOrFail(m -> assertEquals(expRes1, m)).forEach(Assertions::fail);
 
     // 2. existing database, no ingesting -> stock filter TSLA, VTI
-    options.dbOptions.dbPath = new File("src/test/java/testdb.mv.db");
+    options.dbOptions.dbPath = new File("src/test/resources/testdb.mv.db");
     options.dbOptions.newDBPath = null;
     options.txFile = null;
     options.stockFilter = java.util.List.of("TSLA", "VTI");
@@ -352,8 +352,8 @@ class AnalysioloTest {
     String dateStr2 = "2022-11-07";
 
     // 1. new database, ingest txs -> stock filter AVUV
-    db.newDBPath = new File("src/test/java/testdb.mv.db");
-    txFile = new File("src/test/java/testdata.txt");
+    db.newDBPath = new File("src/test/resources/testdb.mv.db");
+    txFile = new File("src/test/resources/testdata.txt");
     stocks = java.util.List.of("AVUV");
     Result<Map<Symbol, List<BigDecimal>>> res = app.avgCost_(db, tf, stocks, txFile);
 

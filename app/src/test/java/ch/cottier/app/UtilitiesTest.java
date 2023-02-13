@@ -20,7 +20,7 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
 class UtilitiesTest {
-  String pathAdditionalError = "src/test/java/testdata_additional_error.txt";
+  String pathAdditionalError = "src/test/resources/testdata_additional_error.txt";
 
   @SuppressWarnings("unused")
   <T> Result<T> assertSuccess(Result<T> r) {
@@ -124,7 +124,7 @@ class UtilitiesTest {
 
     FooOptions.DBOptions db = new DBOptions();
     db.dbPath = null;
-    db.newDBPath = new File("src/test/java/testdb.mv.db");
+    db.newDBPath = new File("src/test/resources/testdb.mv.db");
     assertSuccess(Utilities.parseDbOption(db));
     assertTrue(db.newDBPath.exists());
     assertTrue(db.newDBPath.delete());

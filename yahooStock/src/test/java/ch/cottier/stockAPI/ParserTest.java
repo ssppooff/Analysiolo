@@ -15,10 +15,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class ParserTest {
-  String path = "src/test/java/testdata.txt";
-  String pathErrorFile = "src/test/java/testdata_error.txt";
-  String pathAdditional = "src/test/java/testdata_additional.txt";
-  String pathAdditionalStocksError = "src/test/java/testdata_additional_stocksError.txt";
+  String path = "src/test/resources/testdata.txt";
+  String pathErrorFile = "src/test/resources/testdata_error.txt";
+  String pathAdditional = "src/test/resources/testdata_additional.txt";
+  String pathAdditionalStocksError = "src/test/resources/testdata_additional_stocksError.txt";
 
   // Data for test transaction
   static LocalDate date = LocalDate.parse("2021-02-18");
