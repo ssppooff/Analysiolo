@@ -281,9 +281,7 @@ final class Utilities {
 
   static List<List<String>> applyTheme(List<String> colNames, List<List<BigDecimal>> data,
       Function<List<List<String>>, List<List<String>>> theme) {
-    List<List<String>> tableData = data.map(rowData -> rowData
-                                           .map(price ->
-                                                    String.format("%.3f", price)));
+    List<List<String>> tableData = data.map(rowData -> rowData.map(Utilities::renderPrice));
     return theme.apply(tableData.prepend(colNames));
   }
 
