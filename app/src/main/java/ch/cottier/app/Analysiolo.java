@@ -23,34 +23,40 @@ import picocli.CommandLine.Option;
 
 class FooOptions {
     @SuppressWarnings("FieldMayBeFinal")
-    @Option(names = {"--dry-run", "-n"})
+    @Option(names = {"--dry-run", "-n"},
+        description = "Run command without opening or writing files.")
     boolean dryRun = false;
 
     @Option(names = {"--ingest", "--parse", "--file", "-f"},
-        description = "path to file with transactions to process")
+        description = "Ingest transactions inside file located at txFile.")
     File txFile;
 
-    @Option(names = "--filter", split = ",", arity = "1..*")
-    java.util.List<String> stockFilter;
+    @Option(names = "--filter", split = ",", arity = "1..*",
+        description = "Only consider transactions involving listed ticker symbols.")
+    java.util.List<String> symbol;
 
     @ArgGroup(exclusive = true)
     public DBOptions dbOptions;
     static class DBOptions {
-        @Option(names = {"--create-database",
-            "-c"}, description = "create a new database")
+        @Option(names = {"--create-database", "-c"},
+            description = "Creates a new database at newDBPath.")
         File newDBPath;
 
-        @Option(names = {"--database", "-d"}, description = "Path to database")
+        @Option(names = {"--database", "-d"},
+            description = "Path to existing database.")
         File dbPath;
     }
 
     @ArgGroup(exclusive = true)
     public TFOptions tfOptions;
     static class TFOptions {
-        @Option(names = "--period", arity = "1..2")
+        @Option(names = "--period", arity = "1..2",
+            description = "Time period of two dates, written YYYY-MM-DD.\n"
+                + "Shortcuts: now, inception, one-year, ytd, year-to-date.")
         java.util.List<String> period;
 
-        @Option(names = "--date", arity = "1")
+        @Option(names = "--date", arity = "1",
+            description = "Date written as YYYY-MM-DD.")
         LocalDate date;
     }
 }
@@ -102,13 +108,13 @@ public class Analysiolo {
 
     static Result<List<Transaction>> list_(FooOptions fooOptions) {
         return Utilities.prepTransactions(fooOptions.dbOptions, fooOptions.txFile)
-                        .map(txs -> txs.filter(Utilities.symbolComparator(fooOptions.stockFilter)))
+                        .map(txs -> txs.filter(Utilities.symbolComparator(fooOptions.symbol)))
                         .map(txs -> txs.filter(Utilities.timePeriodComparator(fooOptions.tfOptions)))
                         .mapEmptyCollection();
     }
 
     @Command(name = "list",
-        description = "Tool for simple analysis of a stock portfolio based on transactions.")
+        description = "List all transactions stored, including ones to be ingested.")
     int list(@Mixin FooOptions fooOptions) throws Exception {
         Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
         if (dbValidation.isFailure()) {
@@ -119,7 +125,7 @@ public class Analysiolo {
         if (fooOptions.dryRun) {
             dbValidation.forEach(System.out::println);
             dryRunFile(fooOptions.txFile);
-            dryRunStockFilter(fooOptions.stockFilter);
+            dryRunStockFilter(fooOptions.symbol);
             dryRunTimeFiler(fooOptions.tfOptions);
             dryRunOutput();
             return 0;
@@ -146,9 +152,10 @@ public class Analysiolo {
                         .map(l -> new Tuple<>(date, l))));
     }
 
-    @Command(name = "price")
+    @Command(name = "price",
+        description = "Fetch price(s) of ticker symbol(s), current or historical.")
     int price(@Mixin FooOptions fooOptions) {
-        java.util.List<String> stockFilter = fooOptions.stockFilter;
+        java.util.List<String> stockFilter = fooOptions.symbol;
         FooOptions.TFOptions tf = fooOptions.tfOptions;
         FooOptions.DBOptions db = fooOptions.dbOptions;
         if (stockFilter == null || stockFilter.isEmpty()) {
@@ -201,7 +208,7 @@ public class Analysiolo {
             System.out.println(s);
             return 0;
         } else {
-            Result<String> output = price_(fooOptions.tfOptions, fooOptions.stockFilter)
+            Result<String> output = price_(fooOptions.tfOptions, fooOptions.symbol)
                 .map(Utilities::changeFormat)
                 .map(t -> {
                     if (t._1.size() == 1)
@@ -222,7 +229,7 @@ public class Analysiolo {
   static Result<List<Tuple<LocalDate, BigDecimal>>> value_(FooOptions options) {
     Result<List<Transaction>> lTx =
         Utilities.prepTransactions(options.dbOptions, options.txFile)
-                 .map(txs -> txs.filter(Utilities.symbolComparator(options.stockFilter)));
+                 .map(txs -> txs.filter(Utilities.symbolComparator(options.symbol)));
 
     return List.flattenResult(Utilities.parseTimeFilter(options.tfOptions)
                                        .map(date -> lTx
@@ -237,7 +244,7 @@ public class Analysiolo {
                     .flatMap(pf -> pf.valueOn(date));
   }
 
-  @Command(name = "value")
+  @Command(name = "value", description = "Compute value of portfolio.")
   int value(@Mixin FooOptions fooOptions) throws Exception {
     Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
     if (dbValidation.isFailure()) {
@@ -248,7 +255,7 @@ public class Analysiolo {
     if (fooOptions.dryRun) {
       dbValidation.forEach(System.out::println);
       dryRunFile(fooOptions.txFile);
-      dryRunStockFilter(fooOptions.stockFilter);
+      dryRunStockFilter(fooOptions.symbol);
 
       List<LocalDate> dates = Utilities.parseTimeFilter(fooOptions.tfOptions);
       dates.forEach(date -> System.out.println("Computing value of portfolio on date " + date));
@@ -310,7 +317,8 @@ public class Analysiolo {
             .mapEmptyCollection();
     }
 
-    @Command(name = "avgCost")
+    @Command(name = "avgCost",
+        description = "Compute min, max, and average acquisition cost of share(s).")
     int avgCost(@Mixin FooOptions fooOptions) throws Exception {
         if (fooOptions.tfOptions != null && fooOptions.tfOptions.date != null) {
             System.out.println("--date option not supported with avgCost command");
@@ -326,7 +334,7 @@ public class Analysiolo {
         if (fooOptions.dryRun) {
             dbValidation.forEach(System.out::println);
             dryRunFile(fooOptions.txFile);
-            dryRunStockFilter(fooOptions.stockFilter);
+            dryRunStockFilter(fooOptions.symbol);
             dryRunTimeFiler(fooOptions.tfOptions);
             System.out.println("Computing avg purchase cost over filtered transactions for each "
                 + "stock");
@@ -372,7 +380,7 @@ public class Analysiolo {
     });
   }
 
-  @Command(name = "twrr")
+  @Command(name = "twrr", description = "Compute TWRR over a given period.")
   int TWRR(@Mixin FooOptions fooOptions) throws Exception {
     if (fooOptions.tfOptions != null && fooOptions.tfOptions.date != null) {
       System.out.println("--date option not supported with twrr command");
@@ -388,7 +396,7 @@ public class Analysiolo {
     if (fooOptions.dryRun) {
       dbValidation.forEach(System.out::println);
       dryRunFile(fooOptions.txFile);
-      dryRunStockFilter(fooOptions.stockFilter);
+      dryRunStockFilter(fooOptions.symbol);
       dryRunTimeFiler(fooOptions.tfOptions);
       System.out.println("Computing TWRR");
       dryRunOutput();
