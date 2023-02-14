@@ -93,7 +93,7 @@ For example, if on February 18, 2021, you bought 11 shares of S&P 500 (ticker `^
 2021-02-18 BUY ^GSPC +11 3930.60
 ```
 
-Or, selling 5 shares of S&P 500 on March 3, 2021 for 3'820.40, should be written as
+Or, selling 5 shares of S&P 500 on March 3, 2021, for 3'820.40, should be written as
 ```
 2021-03-03 SELL ^GSPC -5 3820.40
 ```
@@ -167,7 +167,7 @@ For example
 ```
 analysiolo list -d ~/home/myPortfolio.mv.db --filter ^GSPC TSLA --period 2021-01-02 2021-07-02
 ```
-will list only transactions about S&P 500 (symbol `^GSPC`) and Tesla, that were made between Jan 2, 2021 and July 2, 2021.
+will list only transactions about S&P 500 (symbol `^GSPC`) and Tesla, that were made between Jan 2, 2021, and July 2, 2021.
 
 ## Value of a Portfolio
 The subcommand `value` will compute the value at a given date of a portfolio created from a set of transactions. If no date/period filter or ticker symbol filter is given, it will use all recorded transactions and compute the current value.

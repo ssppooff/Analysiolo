@@ -281,7 +281,6 @@ class AnalysioloTest {
   //  - no date or period -> all transactions
   //  - date -> filter transactions up to & incl. date
   //  - period -> transactions between two dates (inclusive)
-  @SuppressWarnings("ConstantConditions")
   @Test
   void avgCostTest() {
     FooOptions options = new FooOptions();
