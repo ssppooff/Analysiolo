@@ -208,7 +208,7 @@ public class Analysiolo {
                         return Utilities.applyTheme(t._1, t._2, Utilities.themeSimple());
                     else {
                         t = t.mapRight(m -> m.mapVal(Utilities::addChangeMetrics))
-                             .mapLeft(header -> List.concat(header, List.of("𝝙", "𝝙 (%)")));
+                             .mapLeft(header -> List.concat(header, List.of("𝝙", " 𝝙 (%)")));
                         return Utilities.applyTheme(t._1, t._2, Utilities.themeChangeMetrics());
                     }
                 })
