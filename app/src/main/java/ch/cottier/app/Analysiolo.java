@@ -219,54 +219,72 @@ public class Analysiolo {
         }
     }
 
-    static Result<List<Tuple<LocalDate, BigDecimal>>> value_(FooOptions options) {
-        Result<List<Transaction>> lTx =
-            Utilities.prepTransactions(options.dbOptions, options.txFile)
-                     .map(txs -> txs.filter(Utilities.symbolComparator(options.stockFilter)));
+  static Result<List<Tuple<LocalDate, BigDecimal>>> value_(FooOptions options) {
+    Result<List<Transaction>> lTx =
+        Utilities.prepTransactions(options.dbOptions, options.txFile)
+                 .map(txs -> txs.filter(Utilities.symbolComparator(options.stockFilter)));
 
-        return List.flattenResult(
-            Utilities.parseTimeFilter(options.tfOptions)
-                .map(date -> lTx
-                    .flatMap(txs -> valueOnDateFromTx(txs, date)
-                        .map(value -> new Tuple<>(date, value)))))
-            .mapEmptyCollection();
+    return List.flattenResult(Utilities.parseTimeFilter(options.tfOptions)
+                                       .map(date -> lTx
+                                           .flatMap(txs -> valueOnDateFromTx(txs, date)
+                                               .map(value ->
+                                                   new Tuple<>(date, value)))))
+               .mapEmptyCollection();
+  }
+
+  static Result<BigDecimal> valueOnDateFromTx(final List<Transaction> lTx, final LocalDate date) {
+    return Portfolio.portfolio(lTx.filter(tx -> tx.getDate().compareTo(date) <= 0), date)
+                    .flatMap(pf -> pf.valueOn(date));
+  }
+
+  @Command(name = "value")
+  int value(@Mixin FooOptions fooOptions) throws Exception {
+    Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
+    if (dbValidation.isFailure()) {
+      dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
+      return -1;
     }
 
-    static Result<BigDecimal> valueOnDateFromTx(final List<Transaction> lTx, final LocalDate date) {
-        return Portfolio
-            .portfolio(lTx.filter(tx -> tx.getDate().compareTo(date) <= 0), date)
-            .flatMap(pf -> pf.valueOn(date));
+    if (fooOptions.dryRun) {
+      dbValidation.forEach(System.out::println);
+      dryRunFile(fooOptions.txFile);
+      dryRunStockFilter(fooOptions.stockFilter);
+
+      List<LocalDate> dates = Utilities.parseTimeFilter(fooOptions.tfOptions);
+      dates.forEach(date -> System.out.println("Computing value of portfolio on date " + date));
+      if (dates.size() == 2)
+        System.out.println("Adding change metrics");
+
+      dryRunOutput();
+      return 0;
+    } else {
+      Result<List<Tuple<LocalDate, BigDecimal>>> result = value_(fooOptions);
+
+      Result<String> renderedTable =
+          result.map(l -> l
+                    .map(Tuple::_1)
+                    .map(LocalDate::toString))
+                .flatMap(dates -> result.map(l -> l.map(Tuple::_2))
+                                        .map(List::of)
+                                        .map(rawData -> {
+                                          if (dates.size() == 1)
+                                            return Utilities.applyTheme(dates, rawData,
+                                                Utilities.themeSimple());
+
+                                          else {
+                                            List<List<BigDecimal>> data =
+                                                rawData.map(Utilities::addChangeMetrics);
+                                            List<String> colNames =
+                                                List.concat(dates, List.of("𝝙", " 𝝙 (%)"));
+                                            return Utilities.applyTheme(colNames, data,
+                                                Utilities.themeChangeMetrics());
+                                          }
+                                        })
+                                        .map(Utilities::renderTable));
+      Utilities.printResultTable(renderedTable);
+      return result.isFailure() ? -1 : 0;
     }
-
-    @Command(name = "value")
-    int value(@Mixin FooOptions fooOptions) throws Exception {
-        Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
-        if (dbValidation.isFailure()) {
-            dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
-            return -1;
-        }
-
-        if (fooOptions.dryRun) {
-            dbValidation.forEach(System.out::println);
-            dryRunFile(fooOptions.txFile);
-            dryRunStockFilter(fooOptions.stockFilter);
-
-            List<LocalDate> dates = Utilities.parseTimeFilter(fooOptions.tfOptions);
-            dates.forEach(date ->
-                System.out.println("Computing value of portfolio on date " + date));
-            if (dates.size() == 2)
-                System.out.println("Adding change metrics");
-
-            dryRunOutput();
-            return 0;
-        } else {
-            Result<List<Tuple<LocalDate, BigDecimal>>> output = value_(fooOptions);
-            output.failIfEmpty("No transaction corresponds to filter criteria")
-                  .forEachOrFail(System.out::println).forEach(err -> System.out.println("Error:"
-                      + " " + err));
-            return output.isFailure() ? -1 : 0;
-        }
-    }
+  }
 
     static Result<Map<Symbol, List<BigDecimal>>> avgCost_(FooOptions options) {
         Result<Map<Symbol, List<Transaction>>> filteredTxs = list_(options)

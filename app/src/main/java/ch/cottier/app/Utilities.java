@@ -320,8 +320,8 @@ final class Utilities {
 
             // create horiz rule with gap for first vert rule and '+' for second
             // insert both vertical rules, not in the horiz rule, except for the "+"
-            int vertRulePos = 2;
-            int vertRulePos2 = 4;
+            int vertRulePos = s.head().size() > 4 ? 2 : 1;
+            int vertRulePos2 = s.head().size() -1;
             List<String> horzRule = res.head().map(hd -> horzSep.repeat(hd.length()))
                                        .insert(vertRulePos, " ".repeat(vertDateSep.length()))
                                        .insert(vertRulePos2, "+".repeat(vertResSep.length()));
