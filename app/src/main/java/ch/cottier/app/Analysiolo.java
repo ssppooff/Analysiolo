@@ -382,11 +382,6 @@ public class Analysiolo {
 
   @Command(name = "twrr", description = "Compute TWRR over a given period.")
   int TWRR(@Mixin FooOptions fooOptions) throws Exception {
-    if (fooOptions.tfOptions != null && fooOptions.tfOptions.date != null) {
-      System.out.println("--date option not supported with twrr command");
-      return -1;
-    }
-
     Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
     if (dbValidation.isFailure()) {
       dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
