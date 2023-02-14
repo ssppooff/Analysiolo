@@ -372,7 +372,8 @@ public class Analysiolo {
       // portfolio value on date1 | value on date2 | twrr
       return Utilities.growthFactors(lTx, adjDates.tail().head())
                  .map(factors -> factors.reduce(BigDecimal::multiply)
-                                        .subtract(BigDecimal.ONE))
+                                        .subtract(BigDecimal.ONE)
+                                        .setScale(6, RoundingMode.HALF_UP))
                  .flatMap(twrr -> List.flattenResult(adjDates.map(d -> valueOnDateFromTx(lTx, d)))
                      .map(pfValuations -> pfValuations.append(twrr))
                          .map(data ->
