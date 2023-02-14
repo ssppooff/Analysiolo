@@ -132,8 +132,8 @@ Some examples to better illustrate what will be output with which flag:
   $ analysiolo price --filter ^GSPC TSLA --date 2021-01-02
          2021-01-02
    ----- ----------
-   ^GSPC   3735.360
-   TSLA     221.230
+   ^GSPC   3756.070
+   TSLA     235.223
   ```
 
 - Time period -> closing price at the beginning and end of the period, as well as the price changes (absolute and in percentage)
@@ -141,8 +141,8 @@ Some examples to better illustrate what will be output with which flag:
   $ analysiolo price --filter ^GSPC TSLA --period 2021-01-02 2022-01-02
          2021-01-02 ~> 2022-01-02 |       𝝙 𝝙 (%)
    ----- ----------    ---------- + -------- ------
-   ^GSPC   3735.360 ~>   4786.350 | 1050.990 28.136
-   TSLA     221.230 ~>    362.823 |  141.593 64.003
+   ^GSPC   3756.070 ~>   4766.180 | 1010.110 26.893
+   TSLA     235.223 ~>    352.260 |  117.037 49.756
   ```
 
 ## Listing Transactions
