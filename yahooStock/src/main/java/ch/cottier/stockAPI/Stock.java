@@ -92,7 +92,7 @@ public class Stock {
       if (price.isEmpty())
         return Result.failure("No price available for date " + date);
 
-      return Result.success(price.get(0).getClose());
+      return Result.success(price.get(price.size() -1).getClose());
     } catch (IOException e) {
       return Result.failure(e);
     }

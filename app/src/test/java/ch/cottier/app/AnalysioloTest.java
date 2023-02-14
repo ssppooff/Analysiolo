@@ -235,7 +235,7 @@ class AnalysioloTest {
 
     options.stockFilter = java.util.List.of("TSLA");
     options.tfOptions.date = LocalDate.parse(dateStr1);
-    assertEquals(Result.success(new BigDecimal("390.666656")),
+    assertEquals(Result.success(new BigDecimal("407.363342")),
         resultPrices(options.tfOptions, options.stockFilter).map(l -> l.head().head()));
 
     // --period -> if only size() == 1 && today: same as --date=today, if size() == 1: price on
@@ -256,7 +256,7 @@ class AnalysioloTest {
     options.tfOptions.period = java.util.List.of(dateStr1);
     Result<List<List<BigDecimal>>> resPrices1 = resultPrices(options.tfOptions, options.stockFilter);
     List<List<BigDecimal>> expPrices1 = List.of(
-        List.of(new BigDecimal("390.666656"), new BigDecimal("238.830002")),
+        List.of(new BigDecimal("407.363342"), new BigDecimal("242.360001")),
         currPrices.getOrThrow());
 
     Result<List<List<Tuple<BigDecimal, BigDecimal>>>> combinedData = resPrices1.map(resP -> List
@@ -272,8 +272,8 @@ class AnalysioloTest {
 
     options.tfOptions.period = java.util.List.of(dateStr1, dateStr2);
     List<List<BigDecimal>> expPrices2 = List.of(
-        List.of(new BigDecimal("390.666656"), new BigDecimal("238.830002")),
-        List.of(new BigDecimal("214.979996"), new BigDecimal("188.339996")));
+        List.of(new BigDecimal("407.363342"), new BigDecimal("242.360001")),
+        List.of(new BigDecimal("197.080002"), new BigDecimal("190.660004")));
     assertEquals(Result.success(expPrices2), resultPrices(options.tfOptions, options.stockFilter));
   }
 
