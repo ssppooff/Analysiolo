@@ -36,17 +36,17 @@ final class Utilities {
               .map(ignoreReturn -> t._1));
   }
 
-  static Result<String> validationDBOptions(Options.DBOptions db) {
+  static Result<String> validationDBOptions(Options.DBOptions dbOptions) {
       try {
-          if (db == null)
+          if (dbOptions == null)
               return Result.failure("No path to database given, exiting");
           else {
-              String dbPath = removePossibleExtensions(db.dbPath == null
-                      ? db.newDBPath.getCanonicalPath()
-                      : db.dbPath.getCanonicalPath());
+              String dbPath = removePossibleExtensions(dbOptions.dbPath == null
+                      ? dbOptions.newDBPath.getCanonicalPath()
+                      : dbOptions.dbPath.getCanonicalPath());
               File dbFile = new File(dbPath + ".mv.db");
 
-              if (db.newDBPath != null)
+              if (dbOptions.newDBPath != null)
                   return dbFile.exists()
                       ? Result.failure("Database already exists at " + dbPath)
                       : Result.success("Creating new database at " + dbPath);
@@ -257,13 +257,13 @@ final class Utilities {
             : List.of(filter).map(Symbol::symbol);
     }
 
-    static Function<Transaction, Boolean> timePeriodComparator(final Options.TFOptions filter) {
-        if (filter == null)
+    static Function<Transaction, Boolean> timePeriodComparator(final Options.TFOptions tf) {
+        if (tf == null)
             return tx -> true;
-        if (filter.date != null)
-            return tx -> tx.getDate().compareTo(filter.date) <= 0;
+        if (tf.date != null)
+            return tx -> tx.getDate().compareTo(tf.date) <= 0;
         else {
-            List<String> period = List.of(filter.period);            if (period.size() == 1) {
+            List<String> period = List.of(tf.period);            if (period.size() == 1) {
                 return switch (period.head()) {
                     case "now" -> tx -> tx.getDate().equals(LocalDate.now());
                     case "inception" -> tx -> true;

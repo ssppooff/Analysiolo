@@ -77,20 +77,20 @@ class AnalysioloTest {
   }
 
   Options.DBOptions prepDBOptions() {
-    Options.DBOptions db = new DBOptions();
-    db.dbPath = null;
-    db.newDBPath = new File("src/test/resources/testdb.mv.db");
-    if (db.newDBPath.exists())
-      assertTrue(db.newDBPath.delete());
+    Options.DBOptions dbOptions = new DBOptions();
+    dbOptions.dbPath = null;
+    dbOptions.newDBPath = new File("src/test/resources/testdb.mv.db");
+    if (dbOptions.newDBPath.exists())
+      assertTrue(dbOptions.newDBPath.delete());
 
-    return db;
+    return dbOptions;
   }
 
-  Result<Boolean> deleteDB(Options.DBOptions db) {
-    if (db != null) {
-      File path = db.newDBPath == null
-          ? db.dbPath
-          : db.newDBPath;
+  Result<Boolean> deleteDB(Options.DBOptions dbOptions) {
+    if (dbOptions != null) {
+      File path = dbOptions.newDBPath == null
+          ? dbOptions.dbPath
+          : dbOptions.newDBPath;
       assertTrue(path.exists());
       assertTrue(path.delete());
       return Result.success(true);
