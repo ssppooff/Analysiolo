@@ -359,7 +359,7 @@ public class Analysiolo {
        complicated way of stating that the returns for each sub-period are multiplied by each
        other.
    */
-  Result<Tuple<List<LocalDate>, List<BigDecimal>>> twrr_(FooOptions options) {
+  static Result<Tuple<List<LocalDate>, List<BigDecimal>>> twrr_(FooOptions options) {
     return list_(options).flatMap(lTx -> {
       List<LocalDate> dates = Utilities.parseTimeFilter(options.tfOptions);
       List<LocalDate> adjDates =

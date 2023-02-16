@@ -340,30 +340,6 @@ class AnalysioloTest {
   }
 
   @Test
-  void twrrTest() {
-    // TODO twrrTest
-    /*
-    DB db = prepDBOptions();
-    TimeFilter tf = new TimeFilter();
-    File txFile;
-    java.util.List<String> stocks;
-    String dateStr1 = "2021-10-12";
-    String dateStr2 = "2022-11-07";
-
-    // 1. new database, ingest txs -> stock filter AVUV
-    db.newDBPath = new File("src/test/resources/testdb.mv.db");
-    txFile = new File("src/test/resources/testdata.txt");
-    stocks = java.util.List.of("AVUV");
-    Result<Map<Symbol, List<BigDecimal>>> res = app.avgCost_(db, tf, stocks, txFile);
-
-    Map<Symbol, List<BigDecimal>> expRes1 =
-        Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("AVUV"),
-            List.of(new BigDecimal("38.059"), new BigDecimal("29.000"), new BigDecimal("40.000")));
-    res.forEachOrFail(m -> assertEquals(expRes1, m)).forEach(Assertions::fail);
-     */
-  }
-
-  @Test
   void parseIntoDataSource() {
     // Read in input data, make sure no shares are negative after any transaction
     Result<List<Transaction>> listTx = readTxFromFile(path);
@@ -503,5 +479,77 @@ class AnalysioloTest {
             new BigDecimal("180.00000")));
     var f = Utilities.growthFactors(lTx, (LocalDate.parse("2022-11-28")));
     f.forEachOrFail(System.out::println).forEach(err -> System.out.println("err: " + err));
+  }
+
+  // twrr (date, period): 1) filtered transactions, always filter stocks 2) twrr until specific date
+  //  - no date or period -> all transactions
+  //  - date -> transactions up to & incl. date, twrr on date
+  //  - period -> transactions inside period (inclusive), twrr on second/last date
+  @Test
+  void twrrTest() {
+    FooOptions options = new FooOptions();
+    options.dbOptions = prepDBOptions();
+    String dateStr1 = "2021-10-12";
+    String dateStr2 = "2022-11-07";
+
+    // Test case 1: new DB, no filter -> TWRR over all transactions
+    // Expected: current prices, corresponding TWRR (cannot be predicted)
+    options.dbOptions.newDBPath = new File("src/test/resources/testdb.mv.db");
+    options.dbOptions.dbPath = null;
+    options.tfOptions = null;
+    options.txFile = new File("src/test/resources/testdata.txt");
+    options.symbol = null;
+
+    Result<Tuple<List<LocalDate>, List<BigDecimal>>> res = Analysiolo.twrr_(options);
+
+    res.forEachOrFail(tpl -> System.out.println("Current result " + tpl))
+       .forEach(Assertions::fail);
+
+    // Test case 2: existing DB, single date, no stock filter -> transactions up to given date, TWRR
+    // on date
+    // Expected: ((2021-02-18, 2021-10-12, NIL), (2055.000000, 147577.394754, 32.902135, NIL))
+    options.txFile = null;
+    options.dbOptions.newDBPath = null;
+    options.dbOptions.dbPath = new File("src/test/resources/testdb.mv.db");
+    options.tfOptions = new TFOptions();
+    options.tfOptions.date = LocalDate.parse(dateStr1);
+    res = Analysiolo.twrr_(options);
+
+    List<LocalDate> dates = List.of(LocalDate.parse("2021-02-18"), LocalDate.parse(dateStr1));
+    List<BigDecimal> values = List.of(new BigDecimal("2055.000000"),
+                                      new BigDecimal("147577.394754"),
+                                      new BigDecimal("32.902135")); // expected TWRR
+    Tuple<List<LocalDate>, List<BigDecimal>> expRes2 = new Tuple<>(dates, values);
+
+    res.forEachOrFail(tpl -> assertEquals(expRes2, tpl))
+       .forEach(Assertions::fail);
+
+    // Test case 3: single date, filter VTI -> only VTI transactions up to given date, TWRR on date
+    // Expected: ((2021-02-18, 2021-10-12, NIL), (2055.000000, 24481.400654, 11.368508, NIL))
+    options.symbol = java.util.List.of("VTI");
+    res = Analysiolo.twrr_(options);
+
+    values = List.of(new BigDecimal("2055.000000"),
+                     new BigDecimal("24481.400654"),
+                     new BigDecimal("11.368508")); // expected TWRR
+    Tuple<List<LocalDate>, List<BigDecimal>> expRes3 = new Tuple<>(dates, values);
+
+    res.forEachOrFail(tpl -> assertEquals(expRes3, tpl))
+       .forEach(Assertions::fail);
+
+    // Test case 4: period -> VTI transactions inside period (inclusive), TWRR on second date
+    // Expected: ((2021-10-12, 2022-11-07, NIL), (22460.000600, 170068.723568, 33.133043, NIL))
+    options.tfOptions.date = null;
+    options.tfOptions.period = List.of(dateStr1, dateStr2);
+    res = Analysiolo.twrr_(options);
+
+    dates = List.of(LocalDate.parse(dateStr1), LocalDate.parse(dateStr2));
+    values = List.of(new BigDecimal("22460.000600"),
+        new BigDecimal("170068.723568"),
+        new BigDecimal("33.133043")); // expected TWRR
+    Tuple<List<LocalDate>, List<BigDecimal>> expRes4 = new Tuple<>(dates, values);
+
+    res.forEachOrFail(tpl -> assertEquals(expRes4, tpl))
+       .forEach(Assertions::fail);
   }
 }
