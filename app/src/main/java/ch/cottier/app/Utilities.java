@@ -24,7 +24,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 
 final class Utilities {
-  static Result<List<Transaction>> prepTransactions(FooOptions.DBOptions db, File txFile) {
+  static Result<List<Transaction>> prepTransactions(Options.DBOptions db, File txFile) {
       Result<File> file = txFile == null ? Result.empty() : Result.success(txFile);
       return parseDbOption(db)
           .flatMap(ds -> file
@@ -36,7 +36,7 @@ final class Utilities {
               .map(ignoreReturn -> t._1));
   }
 
-  static Result<String> validationDBOptions(FooOptions.DBOptions db) {
+  static Result<String> validationDBOptions(Options.DBOptions db) {
       try {
           if (db == null)
               return Result.failure("No path to database given, exiting");
@@ -143,7 +143,7 @@ final class Utilities {
 
     private Utilities() {}
 
-    static Result<DataSource> parseDbOption(FooOptions.DBOptions dbOptions) {
+    static Result<DataSource> parseDbOption(Options.DBOptions dbOptions) {
         try {
             if (dbOptions == null)
                 return Result.failure("dbOptions is null");
@@ -222,7 +222,7 @@ final class Utilities {
         return res.map(ignored -> l);
     }
 
-    static List<LocalDate> parseTimeFilter(final FooOptions.TFOptions tf) {
+    static List<LocalDate> parseTimeFilter(final Options.TFOptions tf) {
         if (tf == null)
             return List.of(LocalDate.now());
         else if (tf.date != null)
@@ -257,7 +257,7 @@ final class Utilities {
             : List.of(filter).map(Symbol::symbol);
     }
 
-    static Function<Transaction, Boolean> timePeriodComparator(final FooOptions.TFOptions filter) {
+    static Function<Transaction, Boolean> timePeriodComparator(final Options.TFOptions filter) {
         if (filter == null)
             return tx -> true;
         if (filter.date != null)

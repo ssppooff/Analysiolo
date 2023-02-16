@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import ch.cottier.app.FooOptions.DBOptions;
-import ch.cottier.app.FooOptions.TFOptions;
+import ch.cottier.app.Options.DBOptions;
+import ch.cottier.app.Options.TFOptions;
 import ch.cottier.functionalUtilities.List;
 import ch.cottier.functionalUtilities.Map;
 import ch.cottier.functionalUtilities.Result;
@@ -74,7 +74,7 @@ class UtilitiesTest {
 //  -d demo.db --period 2021-10-10 now (equiv to ^)
 //  -d demo.db --period inception 2021-10-10 (from- to end-date)
 
-    FooOptions.TFOptions tf = new TFOptions();
+    Options.TFOptions tf = new TFOptions();
     tf.date = null;
     tf.period = List.of("now");
     Function<LocalDate, Boolean> comp = date -> Utilities.timePeriodComparator(tf)
@@ -122,7 +122,7 @@ class UtilitiesTest {
   @Test
   void parseDbOptionTest() {
 
-    FooOptions.DBOptions db = new DBOptions();
+    Options.DBOptions db = new DBOptions();
     db.dbPath = null;
     db.newDBPath = new File("src/test/resources/testdb.mv.db");
     assertSuccess(Utilities.parseDbOption(db));
@@ -145,7 +145,7 @@ class UtilitiesTest {
 
     String dateStr1 = "2021-10-10";
     String dateStr2 = "2021-12-10";
-    FooOptions.TFOptions tf = new TFOptions();
+    Options.TFOptions tf = new TFOptions();
     tf.date = LocalDate.parse(dateStr1);
     res = Utilities.parseTimeFilter(tf);
     expRes = List.of(LocalDate.parse(dateStr1));

@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import ch.cottier.app.FooOptions.DBOptions;
-import ch.cottier.app.FooOptions.TFOptions;
+import ch.cottier.app.Options.DBOptions;
+import ch.cottier.app.Options.TFOptions;
 import ch.cottier.functionalUtilities.FileReader;
 import ch.cottier.functionalUtilities.List;
 import ch.cottier.functionalUtilities.Map;
@@ -76,8 +76,8 @@ class AnalysioloTest {
     return dsRes.map(t -> new Tuple<>(t._1, t._2._1));
   }
 
-  FooOptions.DBOptions prepDBOptions() {
-    FooOptions.DBOptions db = new DBOptions();
+  Options.DBOptions prepDBOptions() {
+    Options.DBOptions db = new DBOptions();
     db.dbPath = null;
     db.newDBPath = new File("src/test/resources/testdb.mv.db");
     if (db.newDBPath.exists())
@@ -86,7 +86,7 @@ class AnalysioloTest {
     return db;
   }
 
-  Result<Boolean> deleteDB(FooOptions.DBOptions db) {
+  Result<Boolean> deleteDB(Options.DBOptions db) {
     if (db != null) {
       File path = db.newDBPath == null
           ? db.dbPath
@@ -100,7 +100,7 @@ class AnalysioloTest {
 
   @Test
   void listTest() {
-    FooOptions options = new FooOptions();
+    Options options = new Options();
     options.dbOptions = prepDBOptions();
     options.tfOptions = new TFOptions();
 
@@ -142,7 +142,7 @@ class AnalysioloTest {
 
   @Test
   void valueTest() {
-    FooOptions options = new FooOptions();
+    Options options = new Options();
     options.dbOptions = prepDBOptions();
     options.tfOptions = null;
     options.symbol = java.util.List.of("VTI");
@@ -192,7 +192,7 @@ class AnalysioloTest {
     assertSuccess(deleteDB(options.dbOptions));
   }
 
-  static Result<List<List<BigDecimal>>> resultPrices(FooOptions.TFOptions tf,
+  static Result<List<List<BigDecimal>>> resultPrices(Options.TFOptions tf,
       java.util.List<String> symbols) {
     return Analysiolo.price_(tf, symbols)
         .map(outerL -> outerL.map(Tuple::_2)
@@ -217,7 +217,7 @@ class AnalysioloTest {
     String dateStr1 = "2021-11-07";
     String dateStr2 = "2022-11-07";
 
-    FooOptions options = new FooOptions();
+    Options options = new Options();
     options.symbol = java.util.List.of("TSLA", "VTI");
 
     // no --date or --period -> current price
@@ -283,7 +283,7 @@ class AnalysioloTest {
   //  - period -> transactions between two dates (inclusive)
   @Test
   void avgCostTest() {
-    FooOptions options = new FooOptions();
+    Options options = new Options();
     options.dbOptions = prepDBOptions();
     options.tfOptions = null;
     String dateStr1 = "2021-10-12";
@@ -487,7 +487,7 @@ class AnalysioloTest {
   //  - period -> transactions inside period (inclusive), twrr on second/last date
   @Test
   void twrrTest() {
-    FooOptions options = new FooOptions();
+    Options options = new Options();
     options.dbOptions = prepDBOptions();
     String dateStr1 = "2021-10-12";
     String dateStr2 = "2022-11-07";

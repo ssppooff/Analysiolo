@@ -1,6 +1,6 @@
 package ch.cottier.app;
 
-import ch.cottier.app.FooOptions.TFOptions;
+import ch.cottier.app.Options.TFOptions;
 import ch.cottier.functionalUtilities.List;
 import ch.cottier.functionalUtilities.Map;
 import ch.cottier.functionalUtilities.Result;
@@ -21,7 +21,7 @@ import picocli.CommandLine.HelpCommand;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
-class FooOptions {
+class Options {
     @SuppressWarnings("FieldMayBeFinal")
     @Option(names = {"--dry-run", "-n"},
         description = "Run command without opening or writing files.")
@@ -69,7 +69,7 @@ public class Analysiolo {
 
     Analysiolo() {}
 
-    FooOptions fooOptions;
+    Options options;
 
     // Business logic goes in here
     public Integer call() {
@@ -106,31 +106,31 @@ public class Analysiolo {
         System.out.println("Outputting result");
     }
 
-    static Result<List<Transaction>> list_(FooOptions fooOptions) {
-        return Utilities.prepTransactions(fooOptions.dbOptions, fooOptions.txFile)
-                        .map(txs -> txs.filter(Utilities.symbolComparator(fooOptions.symbol)))
-                        .map(txs -> txs.filter(Utilities.timePeriodComparator(fooOptions.tfOptions)))
+    static Result<List<Transaction>> list_(Options options) {
+        return Utilities.prepTransactions(options.dbOptions, options.txFile)
+                        .map(txs -> txs.filter(Utilities.symbolComparator(options.symbol)))
+                        .map(txs -> txs.filter(Utilities.timePeriodComparator(options.tfOptions)))
                         .mapEmptyCollection();
     }
 
     @Command(name = "list",
         description = "List all transactions stored, including ones to be ingested.")
-    int list(@Mixin FooOptions fooOptions) throws Exception {
-        Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
+    int list(@Mixin Options options) throws Exception {
+        Result<String> dbValidation = Utilities.validationDBOptions(options.dbOptions);
         if (dbValidation.isFailure()) {
             dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
             return -1;
         }
 
-        if (fooOptions.dryRun) {
+        if (options.dryRun) {
             dbValidation.forEach(System.out::println);
-            dryRunFile(fooOptions.txFile);
-            dryRunStockFilter(fooOptions.symbol);
-            dryRunTimeFiler(fooOptions.tfOptions);
+            dryRunFile(options.txFile);
+            dryRunStockFilter(options.symbol);
+            dryRunTimeFiler(options.tfOptions);
             dryRunOutput();
             return 0;
         } else {
-            Result<List<Transaction>> lTx = list_(fooOptions);
+            Result<List<Transaction>> lTx = list_(options);
 
             lTx.failIfEmpty("No transaction corresponds to filter criteria")
                .forEachOrFail(l -> l.forEach(System.out::println))
@@ -140,7 +140,7 @@ public class Analysiolo {
     }
 
     static Result<List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>>>
-        price_(FooOptions.TFOptions tf, java.util.List<String> symbols) {
+        price_(Options.TFOptions tf, java.util.List<String> symbols) {
             return List.flattenResult(
                 Utilities.parseTimeFilter(tf)
                     .map(date -> Stock.stocks(symbols)
@@ -154,10 +154,10 @@ public class Analysiolo {
 
     @Command(name = "price",
         description = "Fetch price(s) of ticker symbol(s), current or historical.")
-    int price(@Mixin FooOptions fooOptions) {
-        java.util.List<String> stockFilter = fooOptions.symbol;
-        FooOptions.TFOptions tf = fooOptions.tfOptions;
-        FooOptions.DBOptions db = fooOptions.dbOptions;
+    int price(@Mixin Options options) {
+        java.util.List<String> stockFilter = options.symbol;
+        Options.TFOptions tf = options.tfOptions;
+        Options.DBOptions db = options.dbOptions;
         if (stockFilter == null || stockFilter.isEmpty()) {
             System.out.println("At least one ticker symbol must be given");
             return -1;
@@ -187,10 +187,10 @@ public class Analysiolo {
         if (db != null)
             System.out.println("Database ignored with command price");
 
-        if (fooOptions.txFile != null)
+        if (options.txFile != null)
             System.out.println("Transactions ignored with command price");
 
-        if (fooOptions.dryRun) {
+        if (options.dryRun) {
             List<LocalDate> dates = Utilities.parseTimeFilter(tf);
             StringBuilder s = new StringBuilder();
             s.append("Getting prices for ")
@@ -208,7 +208,7 @@ public class Analysiolo {
             System.out.println(s);
             return 0;
         } else {
-            Result<String> output = price_(fooOptions.tfOptions, fooOptions.symbol)
+            Result<String> output = price_(options.tfOptions, options.symbol)
                 .map(Utilities::changeFormat)
                 .map(t -> {
                     if (t._1.size() == 1)
@@ -226,7 +226,7 @@ public class Analysiolo {
         }
     }
 
-  static Result<List<Tuple<LocalDate, BigDecimal>>> value_(FooOptions options) {
+  static Result<List<Tuple<LocalDate, BigDecimal>>> value_(Options options) {
     Result<List<Transaction>> lTx =
         Utilities.prepTransactions(options.dbOptions, options.txFile)
                  .map(txs -> txs.filter(Utilities.symbolComparator(options.symbol)));
@@ -245,19 +245,19 @@ public class Analysiolo {
   }
 
   @Command(name = "value", description = "Compute value of portfolio.")
-  int value(@Mixin FooOptions fooOptions) throws Exception {
-    Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
+  int value(@Mixin Options options) throws Exception {
+    Result<String> dbValidation = Utilities.validationDBOptions(options.dbOptions);
     if (dbValidation.isFailure()) {
       dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
       return -1;
     }
 
-    if (fooOptions.dryRun) {
+    if (options.dryRun) {
       dbValidation.forEach(System.out::println);
-      dryRunFile(fooOptions.txFile);
-      dryRunStockFilter(fooOptions.symbol);
+      dryRunFile(options.txFile);
+      dryRunStockFilter(options.symbol);
 
-      List<LocalDate> dates = Utilities.parseTimeFilter(fooOptions.tfOptions);
+      List<LocalDate> dates = Utilities.parseTimeFilter(options.tfOptions);
       dates.forEach(date -> System.out.println("Computing value of portfolio on date " + date));
       if (dates.size() == 2)
         System.out.println("Adding change metrics");
@@ -265,7 +265,7 @@ public class Analysiolo {
       dryRunOutput();
       return 0;
     } else {
-      Result<List<Tuple<LocalDate, BigDecimal>>> result = value_(fooOptions);
+      Result<List<Tuple<LocalDate, BigDecimal>>> result = value_(options);
 
       Result<String> renderedTable =
           result.map(l -> l
@@ -293,7 +293,7 @@ public class Analysiolo {
     }
   }
 
-    static Result<Map<Symbol, List<BigDecimal>>> avgCost_(FooOptions options) {
+    static Result<Map<Symbol, List<BigDecimal>>> avgCost_(Options options) {
         Result<Map<Symbol, List<Transaction>>> filteredTxs = list_(options)
             .map(lTx -> lTx.filter(tx -> tx.getNumShares() > 0))
             .mapEmptyCollection()
@@ -319,30 +319,30 @@ public class Analysiolo {
 
     @Command(name = "avgCost",
         description = "Compute min, max, and average acquisition cost of share(s).")
-    int avgCost(@Mixin FooOptions fooOptions) throws Exception {
-        if (fooOptions.tfOptions != null && fooOptions.tfOptions.date != null) {
+    int avgCost(@Mixin Options options) throws Exception {
+        if (options.tfOptions != null && options.tfOptions.date != null) {
             System.out.println("--date option not supported with avgCost command");
             return -1;
         }
 
-        Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
+        Result<String> dbValidation = Utilities.validationDBOptions(options.dbOptions);
         if (dbValidation.isFailure()) {
             dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
             return -1;
         }
 
-        if (fooOptions.dryRun) {
+        if (options.dryRun) {
             dbValidation.forEach(System.out::println);
-            dryRunFile(fooOptions.txFile);
-            dryRunStockFilter(fooOptions.symbol);
-            dryRunTimeFiler(fooOptions.tfOptions);
+            dryRunFile(options.txFile);
+            dryRunStockFilter(options.symbol);
+            dryRunTimeFiler(options.tfOptions);
             System.out.println("Computing avg purchase cost over filtered transactions for each "
                 + "stock");
             dryRunOutput();
             return 0;
         } else {
             List<String> colNames = List.of("avg cost", "min", "max");
-            Result<Map<Symbol, List<BigDecimal>>> result = avgCost_(fooOptions);
+            Result<Map<Symbol, List<BigDecimal>>> result = avgCost_(options);
             Result<String> renderedTable = result
                 .map(mapData ->
                     Utilities.applyTheme(colNames, mapData, Utilities.themeSimple()))
@@ -359,7 +359,7 @@ public class Analysiolo {
        complicated way of stating that the returns for each sub-period are multiplied by each
        other.
    */
-  static Result<Tuple<List<LocalDate>, List<BigDecimal>>> twrr_(FooOptions options) {
+  static Result<Tuple<List<LocalDate>, List<BigDecimal>>> twrr_(Options options) {
     return list_(options).flatMap(lTx -> {
       List<LocalDate> dates = Utilities.parseTimeFilter(options.tfOptions);
       List<LocalDate> adjDates =
@@ -383,23 +383,23 @@ public class Analysiolo {
   }
 
   @Command(name = "twrr", description = "Compute TWRR over a given period.")
-  int TWRR(@Mixin FooOptions fooOptions) throws Exception {
-    Result<String> dbValidation = Utilities.validationDBOptions(fooOptions.dbOptions);
+  int TWRR(@Mixin Options options) throws Exception {
+    Result<String> dbValidation = Utilities.validationDBOptions(options.dbOptions);
     if (dbValidation.isFailure()) {
       dbValidation.forEachOrFail(doNothing -> {}).forEach(System.out::println);
       return -1;
     }
 
-    if (fooOptions.dryRun) {
+    if (options.dryRun) {
       dbValidation.forEach(System.out::println);
-      dryRunFile(fooOptions.txFile);
-      dryRunStockFilter(fooOptions.symbol);
-      dryRunTimeFiler(fooOptions.tfOptions);
+      dryRunFile(options.txFile);
+      dryRunStockFilter(options.symbol);
+      dryRunTimeFiler(options.tfOptions);
       System.out.println("Computing TWRR");
       dryRunOutput();
       return 0;
     } else {
-      Result<Tuple<List<LocalDate>, List<BigDecimal>>> result = twrr_(fooOptions);
+      Result<Tuple<List<LocalDate>, List<BigDecimal>>> result = twrr_(options);
       result.forEach(System.out::println);
       Result<String> renderedTable =
           result.map(tpl -> tpl._1.map(LocalDate::toString).append("TWRR"))
