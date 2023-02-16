@@ -366,18 +366,19 @@ public class Analysiolo {
           dates.size() == 1
               ? dates.prepend(lTx.head().getDate())
               : dates.head().equals(LocalDate.parse("1000-01-01"))
-                  ? dates.tail().prepend(lTx.head().getDate())
-                  : dates;
+                    ? dates.tail().prepend(lTx.head().getDate())
+                    : dates;
 
-      // portfolio value on date1 | value on date2 | twrr
+      // portfolio value on date1 | value on date2 | TWRR
       return Utilities.growthFactors(lTx, adjDates.tail().head())
-                 .map(factors -> factors.reduce(BigDecimal::multiply)
-                                        .subtract(BigDecimal.ONE)
-                                        .setScale(6, RoundingMode.HALF_UP))
-                 .flatMap(twrr -> List.flattenResult(adjDates.map(d -> valueOnDateFromTx(lTx, d)))
-                     .map(pfValuations -> pfValuations.append(twrr))
-                         .map(data ->
-                             new Tuple<>(adjDates, data)));
+                      .map(factors -> factors.reduce(BigDecimal::multiply)
+                                             .subtract(BigDecimal.ONE)
+                                             .setScale(6, RoundingMode.HALF_UP))
+                      .flatMap(twrr -> List.flattenResult(adjDates
+                          .map(valuationDates -> valueOnDateFromTx(lTx, valuationDates)))
+                            .map(pfValuations -> pfValuations.append(twrr))
+                                .map(data ->
+                                    new Tuple<>(adjDates, data)));
     });
   }
 
@@ -399,6 +400,7 @@ public class Analysiolo {
       return 0;
     } else {
       Result<Tuple<List<LocalDate>, List<BigDecimal>>> result = twrr_(fooOptions);
+      result.forEach(System.out::println);
       Result<String> renderedTable =
           result.map(tpl -> tpl._1.map(LocalDate::toString).append("TWRR"))
                 .flatMap(colNames -> result.map(Tuple::_2)
