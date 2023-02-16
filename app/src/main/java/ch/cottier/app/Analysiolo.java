@@ -1,6 +1,6 @@
 package ch.cottier.app;
 
-import ch.cottier.app.Options.TFOptions;
+import ch.cottier.app.Options.TimeFilter;
 import ch.cottier.functionalUtilities.List;
 import ch.cottier.functionalUtilities.Map;
 import ch.cottier.functionalUtilities.Result;
@@ -48,8 +48,8 @@ class Options {
     }
 
     @ArgGroup(exclusive = true)
-    public TFOptions tfOptions;
-    static class TFOptions {
+    public TimeFilter timeFilter;
+    static class TimeFilter {
         @Option(names = "--period", arity = "1..2",
             description = "Time period of two dates, written YYYY-MM-DD.\n"
                 + "Shortcuts: now, inception, one-year, ytd, year-to-date.")
@@ -91,7 +91,7 @@ public class Analysiolo {
             System.out.println("Filtering transactions for following stocks " + stockFilter);
     }
 
-    static void dryRunTimeFiler(TFOptions tf) {
+    static void dryRunTimeFiler(TimeFilter tf) {
         if (tf != null) {
             List<LocalDate> f = Utilities.parseTimeFilter(tf);
             if (f.size() == 1)
@@ -109,7 +109,7 @@ public class Analysiolo {
     static Result<List<Transaction>> list_(Options options) {
         return Utilities.prepTransactions(options.dbOptions, options.txFile)
                         .map(txs -> txs.filter(Utilities.symbolComparator(options.symbol)))
-                        .map(txs -> txs.filter(Utilities.timePeriodComparator(options.tfOptions)))
+                        .map(txs -> txs.filter(Utilities.timePeriodComparator(options.timeFilter)))
                         .mapEmptyCollection();
     }
 
@@ -126,7 +126,7 @@ public class Analysiolo {
             dbValidation.forEach(System.out::println);
             dryRunFile(options.txFile);
             dryRunStockFilter(options.symbol);
-            dryRunTimeFiler(options.tfOptions);
+            dryRunTimeFiler(options.timeFilter);
             dryRunOutput();
             return 0;
         } else {
@@ -140,7 +140,7 @@ public class Analysiolo {
     }
 
     static Result<List<Tuple<LocalDate, List<Tuple<Symbol, BigDecimal>>>>>
-        price_(Options.TFOptions tf, java.util.List<String> symbols) {
+        price_(TimeFilter tf, java.util.List<String> symbols) {
             return List.flattenResult(
                 Utilities.parseTimeFilter(tf)
                     .map(date -> Stock.stocks(symbols)
@@ -156,7 +156,7 @@ public class Analysiolo {
         description = "Fetch price(s) of ticker symbol(s), current or historical.")
     int price(@Mixin Options options) {
         java.util.List<String> stockFilter = options.symbol;
-        Options.TFOptions tf = options.tfOptions;
+        TimeFilter tf = options.timeFilter;
         Options.DBOptions db = options.dbOptions;
         if (stockFilter == null || stockFilter.isEmpty()) {
             System.out.println("At least one ticker symbol must be given");
@@ -208,7 +208,7 @@ public class Analysiolo {
             System.out.println(s);
             return 0;
         } else {
-            Result<String> output = price_(options.tfOptions, options.symbol)
+            Result<String> output = price_(options.timeFilter, options.symbol)
                 .map(Utilities::changeFormat)
                 .map(t -> {
                     if (t._1.size() == 1)
@@ -231,7 +231,7 @@ public class Analysiolo {
         Utilities.prepTransactions(options.dbOptions, options.txFile)
                  .map(txs -> txs.filter(Utilities.symbolComparator(options.symbol)));
 
-    return List.flattenResult(Utilities.parseTimeFilter(options.tfOptions)
+    return List.flattenResult(Utilities.parseTimeFilter(options.timeFilter)
                                        .map(date -> lTx
                                            .flatMap(txs -> valueOnDateFromTx(txs, date)
                                                .map(value ->
@@ -257,7 +257,7 @@ public class Analysiolo {
       dryRunFile(options.txFile);
       dryRunStockFilter(options.symbol);
 
-      List<LocalDate> dates = Utilities.parseTimeFilter(options.tfOptions);
+      List<LocalDate> dates = Utilities.parseTimeFilter(options.timeFilter);
       dates.forEach(date -> System.out.println("Computing value of portfolio on date " + date));
       if (dates.size() == 2)
         System.out.println("Adding change metrics");
@@ -320,7 +320,7 @@ public class Analysiolo {
     @Command(name = "avgCost",
         description = "Compute min, max, and average acquisition cost of share(s).")
     int avgCost(@Mixin Options options) throws Exception {
-        if (options.tfOptions != null && options.tfOptions.date != null) {
+        if (options.timeFilter != null && options.timeFilter.date != null) {
             System.out.println("--date option not supported with avgCost command");
             return -1;
         }
@@ -335,7 +335,7 @@ public class Analysiolo {
             dbValidation.forEach(System.out::println);
             dryRunFile(options.txFile);
             dryRunStockFilter(options.symbol);
-            dryRunTimeFiler(options.tfOptions);
+            dryRunTimeFiler(options.timeFilter);
             System.out.println("Computing avg purchase cost over filtered transactions for each "
                 + "stock");
             dryRunOutput();
@@ -361,7 +361,7 @@ public class Analysiolo {
    */
   static Result<Tuple<List<LocalDate>, List<BigDecimal>>> twrr_(Options options) {
     return list_(options).flatMap(lTx -> {
-      List<LocalDate> dates = Utilities.parseTimeFilter(options.tfOptions);
+      List<LocalDate> dates = Utilities.parseTimeFilter(options.timeFilter);
       List<LocalDate> adjDates =
           dates.size() == 1
               ? dates.prepend(lTx.head().getDate())
@@ -394,7 +394,7 @@ public class Analysiolo {
       dbValidation.forEach(System.out::println);
       dryRunFile(options.txFile);
       dryRunStockFilter(options.symbol);
-      dryRunTimeFiler(options.tfOptions);
+      dryRunTimeFiler(options.timeFilter);
       System.out.println("Computing TWRR");
       dryRunOutput();
       return 0;

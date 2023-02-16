@@ -1,5 +1,6 @@
 package ch.cottier.app;
 
+import ch.cottier.app.Options.TimeFilter;
 import ch.cottier.functionalUtilities.FileReader;
 import ch.cottier.functionalUtilities.List;
 import ch.cottier.functionalUtilities.Map;
@@ -222,7 +223,7 @@ final class Utilities {
         return res.map(ignored -> l);
     }
 
-    static List<LocalDate> parseTimeFilter(final Options.TFOptions tf) {
+    static List<LocalDate> parseTimeFilter(final TimeFilter tf) {
         if (tf == null)
             return List.of(LocalDate.now());
         else if (tf.date != null)
@@ -257,7 +258,7 @@ final class Utilities {
             : List.of(filter).map(Symbol::symbol);
     }
 
-    static Function<Transaction, Boolean> timePeriodComparator(final Options.TFOptions tf) {
+    static Function<Transaction, Boolean> timePeriodComparator(final TimeFilter tf) {
         if (tf == null)
             return tx -> true;
         if (tf.date != null)

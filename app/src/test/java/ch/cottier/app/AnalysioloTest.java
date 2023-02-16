@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import ch.cottier.app.Options.DBOptions;
-import ch.cottier.app.Options.TFOptions;
+import ch.cottier.app.Options.TimeFilter;
 import ch.cottier.functionalUtilities.FileReader;
 import ch.cottier.functionalUtilities.List;
 import ch.cottier.functionalUtilities.Map;
@@ -102,9 +102,9 @@ class AnalysioloTest {
   void listTest() {
     Options options = new Options();
     options.dbOptions = prepDBOptions();
-    options.tfOptions = new TFOptions();
+    options.timeFilter = new TimeFilter();
 
-    options.tfOptions.period = java.util.List.of("2021-05-01", "2021-11-30");
+    options.timeFilter.period = java.util.List.of("2021-05-01", "2021-11-30");
 
     options.symbol = java.util.List.of("VTI");
     options.txFile = new File("src/test/resources/testdata.txt");
@@ -116,8 +116,8 @@ class AnalysioloTest {
     assertSuccess(deleteDB(options.dbOptions));
 
     options.symbol = null;
-    options.tfOptions.date = LocalDate.parse("2021-09-08");
-    options.tfOptions.period = null;
+    options.timeFilter.date = LocalDate.parse("2021-09-08");
+    options.timeFilter.period = null;
     res = Analysiolo.list_(options);
     assertSuccess(res)
         .forEachOrFail(lTx -> assertEquals(5, lTx.size()))
@@ -130,7 +130,7 @@ class AnalysioloTest {
 
     options.dbOptions.dbPath = new File("src/test/resources/testdb.mv.db");
     options.dbOptions.newDBPath = null;
-    options.tfOptions = null;
+    options.timeFilter = null;
     options.txFile = null;
     options.symbol = null;
     res = Analysiolo.list_(options);
@@ -144,7 +144,7 @@ class AnalysioloTest {
   void valueTest() {
     Options options = new Options();
     options.dbOptions = prepDBOptions();
-    options.tfOptions = null;
+    options.timeFilter = null;
     options.symbol = java.util.List.of("VTI");
     options.txFile = new File("src/test/resources/testdata.txt");
 
@@ -165,22 +165,22 @@ class AnalysioloTest {
     String dateStr1 = "2021-11-07";
     String dateStr2 = "2022-11-07";
 //    options.tfOptions = prepTimeFilterOptions();
-    options.tfOptions = new TFOptions();
-    options.tfOptions.date = LocalDate.parse(dateStr1);
+    options.timeFilter = new TimeFilter();
+    options.timeFilter.date = LocalDate.parse(dateStr1);
     res = Analysiolo.value_(options);
     expValue = new BigDecimal("158375.242809");
     assertSuccess(res)
         .forEachOrFail(l -> assertEquals(expValue, l.head()._2))
         .forEach(Assertions::fail);
 
-    options.tfOptions.date = null;
-    options.tfOptions.period = java.util.List.of(dateStr1);
+    options.timeFilter.date = null;
+    options.timeFilter.period = java.util.List.of(dateStr1);
     res = Analysiolo.value_(options);
     assertSuccess(res)
         .forEachOrFail(l -> assertEquals(expValue, l.head()._2))
         .forEach(Assertions::fail);
 
-    options.tfOptions.period = java.util.List.of(dateStr1, dateStr2);
+    options.timeFilter.period = java.util.List.of(dateStr1, dateStr2);
     res = Analysiolo.value_(options);
     assertSuccess(res)
         .forEachOrFail(l -> {
@@ -192,7 +192,7 @@ class AnalysioloTest {
     assertSuccess(deleteDB(options.dbOptions));
   }
 
-  static Result<List<List<BigDecimal>>> resultPrices(Options.TFOptions tf,
+  static Result<List<List<BigDecimal>>> resultPrices(TimeFilter tf,
       java.util.List<String> symbols) {
     return Analysiolo.price_(tf, symbols)
         .map(outerL -> outerL.map(Tuple::_2)
@@ -229,23 +229,23 @@ class AnalysioloTest {
         .forEach(t -> System.out.println("Current price of " + t.toString(":"))));
 
     // --date -> if today -> current price otherwise price on given date
-    options.tfOptions = new TFOptions();
-    options.tfOptions.date = LocalDate.now();
-    assertEquals(currPrices, resultPrices(options.tfOptions, options.symbol).map(List::head));
+    options.timeFilter = new TimeFilter();
+    options.timeFilter.date = LocalDate.now();
+    assertEquals(currPrices, resultPrices(options.timeFilter, options.symbol).map(List::head));
 
     options.symbol = java.util.List.of("TSLA");
-    options.tfOptions.date = LocalDate.parse(dateStr1);
+    options.timeFilter.date = LocalDate.parse(dateStr1);
     assertEquals(Result.success(new BigDecimal("407.363342")),
-        resultPrices(options.tfOptions, options.symbol).map(l -> l.head().head()));
+        resultPrices(options.timeFilter, options.symbol).map(l -> l.head().head()));
 
     // --period -> if only size() == 1 && today: same as --date=today, if size() == 1: price on
     // first date and today, if size() == 2 price on both dates
-    options.tfOptions.date = null;
-    options.tfOptions.period = java.util.List.of(LocalDate.now().toString());
+    options.timeFilter.date = null;
+    options.timeFilter.period = java.util.List.of(LocalDate.now().toString());
     options.symbol = java.util.List.of("TSLA", "VTI");
     Result<List<Tuple<BigDecimal, BigDecimal>>> combinedPrices =
-        resultPrices(options.tfOptions, options.symbol).map(List::head)
-                                                       .flatMap(resP -> currPrices.map(resP::zip));
+        resultPrices(options.timeFilter, options.symbol).map(List::head)
+                                                        .flatMap(resP -> currPrices.map(resP::zip));
     Result<Boolean> withinMargin = combinedPrices
         .map(lT -> lT
             .map(t -> withinOnePercent(t._1, t._2))
@@ -253,8 +253,8 @@ class AnalysioloTest {
     withinMargin.forEach(Assertions::assertTrue);
 
 
-    options.tfOptions.period = java.util.List.of(dateStr1);
-    Result<List<List<BigDecimal>>> resPrices1 = resultPrices(options.tfOptions, options.symbol);
+    options.timeFilter.period = java.util.List.of(dateStr1);
+    Result<List<List<BigDecimal>>> resPrices1 = resultPrices(options.timeFilter, options.symbol);
     List<List<BigDecimal>> expPrices1 = List.of(
         List.of(new BigDecimal("407.363342"), new BigDecimal("242.360001")),
         currPrices.getOrThrow());
@@ -270,11 +270,11 @@ class AnalysioloTest {
         .reduce(Boolean::logicalAnd));
     withinMargin.forEach(Assertions::assertTrue);
 
-    options.tfOptions.period = java.util.List.of(dateStr1, dateStr2);
+    options.timeFilter.period = java.util.List.of(dateStr1, dateStr2);
     List<List<BigDecimal>> expPrices2 = List.of(
         List.of(new BigDecimal("407.363342"), new BigDecimal("242.360001")),
         List.of(new BigDecimal("197.080002"), new BigDecimal("190.660004")));
-    assertEquals(Result.success(expPrices2), resultPrices(options.tfOptions, options.symbol));
+    assertEquals(Result.success(expPrices2), resultPrices(options.timeFilter, options.symbol));
   }
 
   // avgCost (date, period): avgCost for each stock over filtered transactions, always filter stocks
@@ -285,7 +285,7 @@ class AnalysioloTest {
   void avgCostTest() {
     Options options = new Options();
     options.dbOptions = prepDBOptions();
-    options.tfOptions = null;
+    options.timeFilter = null;
     String dateStr1 = "2021-10-12";
     String dateStr2 = "2022-11-07";
 
@@ -312,8 +312,8 @@ class AnalysioloTest {
     res.forEachOrFail(m -> assertEquals(expRes2, m)).forEach(Assertions::fail);
 
     // 3. existing database, no ingesting -> date & single stock VTI
-    options.tfOptions = new TFOptions();
-    options.tfOptions.date = LocalDate.parse(dateStr1);
+    options.timeFilter = new TimeFilter();
+    options.timeFilter.date = LocalDate.parse(dateStr1);
     options.symbol = java.util.List.of("VTI");
     Map<Symbol, List<BigDecimal>> expRes3 =
         Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("VTI"),
@@ -322,8 +322,8 @@ class AnalysioloTest {
     res.forEachOrFail(m -> assertEquals(expRes3, m)).forEach(Assertions::fail);
 
     // 4. existing database, no ingesting -> two periods & single stock VTI
-    options.tfOptions.date = null;
-    options.tfOptions.period = List.of(dateStr1, dateStr2);
+    options.timeFilter.date = null;
+    options.timeFilter.period = List.of(dateStr1, dateStr2);
     Map<Symbol, List<BigDecimal>> expRes4 =
         Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("VTI"),
             List.of(new BigDecimal("43.121"), new BigDecimal("41.200"), new BigDecimal("90.000")));
@@ -496,7 +496,7 @@ class AnalysioloTest {
     // Expected: current prices, corresponding TWRR (cannot be predicted)
     options.dbOptions.newDBPath = new File("src/test/resources/testdb.mv.db");
     options.dbOptions.dbPath = null;
-    options.tfOptions = null;
+    options.timeFilter = null;
     options.txFile = new File("src/test/resources/testdata.txt");
     options.symbol = null;
 
@@ -511,8 +511,8 @@ class AnalysioloTest {
     options.txFile = null;
     options.dbOptions.newDBPath = null;
     options.dbOptions.dbPath = new File("src/test/resources/testdb.mv.db");
-    options.tfOptions = new TFOptions();
-    options.tfOptions.date = LocalDate.parse(dateStr1);
+    options.timeFilter = new TimeFilter();
+    options.timeFilter.date = LocalDate.parse(dateStr1);
     res = Analysiolo.twrr_(options);
 
     List<LocalDate> dates = List.of(LocalDate.parse("2021-02-18"), LocalDate.parse(dateStr1));
@@ -539,8 +539,8 @@ class AnalysioloTest {
 
     // Test case 4: period -> VTI transactions inside period (inclusive), TWRR on second date
     // Expected: ((2021-10-12, 2022-11-07, NIL), (22460.000600, 170068.723568, 33.133043, NIL))
-    options.tfOptions.date = null;
-    options.tfOptions.period = List.of(dateStr1, dateStr2);
+    options.timeFilter.date = null;
+    options.timeFilter.period = List.of(dateStr1, dateStr2);
     res = Analysiolo.twrr_(options);
 
     dates = List.of(LocalDate.parse(dateStr1), LocalDate.parse(dateStr2));
