@@ -2,6 +2,7 @@ package ch.cottier.stockAPI;
 
 import ch.cottier.functionalUtilities.Result;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 
 public class StockPosition {
@@ -31,7 +32,8 @@ public class StockPosition {
 
   public Result<BigDecimal> getValueOn(LocalDate date) {
     return stock.historicalPrice(date).map(price ->
-        price.multiply(BigDecimal.valueOf(nShares)));
+        price.setScale(6, RoundingMode.HALF_UP)
+             .multiply(BigDecimal.valueOf(nShares)));
   }
 
   public static StockPosition position(Stock stock, int nShares) {

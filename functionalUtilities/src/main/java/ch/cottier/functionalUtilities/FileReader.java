@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Scanner;
 
@@ -37,7 +38,8 @@ public class FileReader implements Input {
   @Override
   public Result<Tuple<BigDecimal, Input>> nextBigDecimal() {
     return scanner.hasNextBigDecimal()
-        ? Result.success(new Tuple<>(scanner.nextBigDecimal(), this))
+        ? Result.success(new Tuple<>(scanner.nextBigDecimal()
+                                            .setScale(6, RoundingMode.HALF_UP), this))
         : Result.empty();
   }
 

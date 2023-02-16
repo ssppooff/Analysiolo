@@ -63,7 +63,7 @@ class PortfolioTest {
     Result<BigDecimal> twrr = Result.flatMap2(initPortfolio, listTx, pf -> lTx -> Portfolio.TWRR(pf, lTx, from, to));
     assertSuccess(twrr);
 
-    BigDecimal expRes = new BigDecimal("0.119108982393583731528110761760249746037725179268929607253799680000");
+    BigDecimal expRes = new BigDecimal("0.119109");
     assertEquals(Result.success(expRes), twrr);
   }
 

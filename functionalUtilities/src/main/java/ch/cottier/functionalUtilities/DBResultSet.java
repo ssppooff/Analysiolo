@@ -1,6 +1,7 @@
 package ch.cottier.functionalUtilities;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -93,7 +94,8 @@ public class DBResultSet implements Input {
   @Override
   public Result<Tuple<BigDecimal, Input>> nextBigDecimal() {
     try {
-      return Result.success(new Tuple<>(rSet.getBigDecimal(nextColName()), this));
+      return Result.success(new Tuple<>(rSet.getBigDecimal(nextColName())
+                                            .setScale(6, RoundingMode.HALF_UP), this));
     } catch (SQLException e) {
       return Result.failure(e);
     }

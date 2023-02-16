@@ -42,7 +42,7 @@ public class Portfolio {
   public BigDecimal currentValue() {
     return positions.mapVal(StockPosition::getValue)
         .stream(ignoreSym -> stockPos -> stockPos)
-        .foldLeft(BigDecimal.ZERO, totValue -> totValue::add);
+        .foldLeft(BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP), totValue -> totValue::add);
   }
 
   public static Result<BigDecimal> valueOn(List<Transaction> l, LocalDate date) {
@@ -58,14 +58,16 @@ public class Portfolio {
         : Map.flattenResultVal(positions.mapVal(sp -> sp.getValueOn(date)))
             .map(m -> m.stream(ignoreSym -> stockPos -> stockPos)
                 .foldLeft(BigDecimal.ZERO, stockPos -> stockPos::add));
+    // no need for setScale, as sp.getValueOn() already returns a BigDecimal with scale = 6
   }
 
   private Result<BigDecimal> rateOfReturn(LocalDate from, LocalDate to) {
     Result<BigDecimal> initValue = valueOn(from);
     Result<BigDecimal> endValue = valueOn(to);
     return positions.toList(ignoreSym -> StockPosition::isEmpty).reduce(b1 -> b2 -> b1 && b2)
-        ? Result.success(BigDecimal.ONE)
-        : Result.map2(initValue, endValue, iVal -> eVal -> eVal.divide(iVal, RoundingMode.HALF_UP));
+        ? Result.success(BigDecimal.ONE.setScale(6, RoundingMode.HALF_UP))
+        : Result.map2(initValue, endValue, iVal -> eVal -> eVal.divide(iVal, RoundingMode.HALF_UP)
+                                                               .setScale(6, RoundingMode.HALF_UP));
   }
 
   public static Result<BigDecimal> TWRR(final Portfolio portfolio,
@@ -87,12 +89,13 @@ public class Portfolio {
 
     Result<List<BigDecimal>> growthFactors =
         result.flatMap(res -> lTx.last()
-            .flatMap(lastTx -> res._2.rateOfReturn(lastTx.getDate(), to)
-                .map(ror -> res._1().prepend(ror))))
-            .map(List::reverse);
+                .flatMap(lastTx -> res._2.rateOfReturn(lastTx.getDate(), to)
+                  .map(ror -> res._1().prepend(ror))))
+              .map(List::reverse);
     return growthFactors.map(l -> l
         .foldLeft(BigDecimal.ONE, product -> product::multiply)
-        .subtract(BigDecimal.ONE));
+        .subtract(BigDecimal.ONE)
+        .setScale(6, RoundingMode.HALF_UP));
   }
 
   public static Portfolio empty() {

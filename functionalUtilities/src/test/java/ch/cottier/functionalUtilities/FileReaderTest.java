@@ -49,7 +49,7 @@ class FileReaderTest {
         .forEachOrFail(t -> assertEquals(nShares, t._1))
         .forEach(Assertions::fail);
     fR.flatMap(FileReader::nextBigDecimal)
-        .forEachOrFail(t -> assertEquals(price, t._1))
+        .forEachOrFail(t -> assertTrue(price.compareTo(t._1) == 0))
         .forEach(Assertions::fail);
 
     assertEquals(Result.empty(), fR.flatMap(FileReader::nextInt));

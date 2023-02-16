@@ -22,7 +22,7 @@ public class Transaction {
 
   public static Transaction transaction(LocalDate date, String symbol, int numShares,
       BigDecimal buyPrice) {
-    return new Transaction(date, symbol, numShares, buyPrice);
+    return new Transaction(date, symbol, numShares, buyPrice.setScale(6, RoundingMode.HALF_UP));
   }
 
   @Override
@@ -67,6 +67,7 @@ public class Transaction {
               BigDecimal cost = tx.getPrice().multiply(BigDecimal.valueOf(tx.getNumShares()));
               return new Tuple<>(t._1.add(cost), t._2 + tx.getNumShares());
             }))
-        .mapVal(t -> t._1.divide(BigDecimal.valueOf(t._2), RoundingMode.HALF_UP));
+        .mapVal(t -> t._1.divide(BigDecimal.valueOf(t._2), RoundingMode.HALF_UP)
+                         .setScale(6, RoundingMode.HALF_UP));
   }
 }

@@ -297,7 +297,9 @@ class AnalysioloTest {
 
     Map<Symbol, List<BigDecimal>> expRes1 =
         Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("AVUV"),
-            List.of(new BigDecimal("38.059"), new BigDecimal("29.000"), new BigDecimal("40.000")));
+            List.of(new BigDecimal("38.058824"),
+                    new BigDecimal("29.000000"),
+                    new BigDecimal("40.000000")));
     res.forEachOrFail(m -> assertEquals(expRes1, m)).forEach(Assertions::fail);
 
     // 2. existing database, no ingesting -> stock filter TSLA, VTI
@@ -307,7 +309,9 @@ class AnalysioloTest {
     options.symbol = java.util.List.of("TSLA", "VTI");
     Map<Symbol, List<BigDecimal>> expRes2 =
         Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("VTI"),
-            List.of(new BigDecimal("43.109"), new BigDecimal("40.110"), new BigDecimal("90.000")));
+            List.of(new BigDecimal("43.109451"),
+                new BigDecimal("40.110000"),
+                new BigDecimal("90.000000")));
     res = Analysiolo.avgCost_(options);
     res.forEachOrFail(m -> assertEquals(expRes2, m)).forEach(Assertions::fail);
 
@@ -317,7 +321,9 @@ class AnalysioloTest {
     options.symbol = java.util.List.of("VTI");
     Map<Symbol, List<BigDecimal>> expRes3 =
         Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("VTI"),
-            List.of(new BigDecimal("85.465"), new BigDecimal("40.110"), new BigDecimal("90.000")));
+            List.of(new BigDecimal("85.464545"),
+                new BigDecimal("40.110000"),
+                new BigDecimal("90.000000")));
     res = Analysiolo.avgCost_(options);
     res.forEachOrFail(m -> assertEquals(expRes3, m)).forEach(Assertions::fail);
 
@@ -326,7 +332,9 @@ class AnalysioloTest {
     options.timeFilter.period = List.of(dateStr1, dateStr2);
     Map<Symbol, List<BigDecimal>> expRes4 =
         Map.<Symbol, List<BigDecimal>>empty().put(Symbol.symbol("VTI"),
-            List.of(new BigDecimal("43.121"), new BigDecimal("41.200"), new BigDecimal("90.000")));
+            List.of(new BigDecimal("43.121260"),
+                new BigDecimal("41.200000"),
+                new BigDecimal("90.000000")));
     res = Analysiolo.avgCost_(options);
     res.forEachOrFail(m -> assertEquals(expRes4, m)).forEach(Assertions::fail);
 

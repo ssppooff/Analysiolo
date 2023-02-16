@@ -8,6 +8,7 @@ import ch.cottier.functionalUtilities.Map;
 import ch.cottier.functionalUtilities.Result;
 import ch.cottier.functionalUtilities.Tuple;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
@@ -50,9 +51,9 @@ class TransactionTest {
         .map(Tuple::_1)
         .map(Transaction::weightedAvgPrice);
     Map<Symbol, BigDecimal> expMap = Map.<Symbol, BigDecimal>empty()
-        .put(Symbol.symbol("VXUS"), new BigDecimal("40.000"))
-        .put(Symbol.symbol("AVUV"), new BigDecimal("38.059"))
-        .put(Symbol.symbol("VTI"), new BigDecimal("43.109"));
+        .put(Symbol.symbol("VXUS"), new BigDecimal("40.000000"))
+        .put(Symbol.symbol("AVUV"), new BigDecimal("38.058824"))
+        .put(Symbol.symbol("VTI"), new BigDecimal("43.109451"));
     avgPrice.forEach(m -> assertEquals(expMap, m));
   }
 }
