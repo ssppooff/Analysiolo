@@ -121,13 +121,12 @@ class UtilitiesTest {
 
   @Test
   void parseDbOptionTest() {
-
     Options.DBOptions dbOptions = new DBOptions();
     dbOptions.dbPath = null;
     dbOptions.newDBPath = new File("src/test/resources/testdb.mv.db");
-    assertSuccess(Utilities.parseDbOption(dbOptions));
     assertTrue(dbOptions.newDBPath.exists());
     assertTrue(dbOptions.newDBPath.delete());
+    assertSuccess(Utilities.parseDbOption(dbOptions));
   }
 
   @Test
